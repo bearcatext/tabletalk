@@ -576,6 +576,13 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
   /* the input was 16px tall inside a 58px bar, so most of the bar was not
      tappable */
   .marco-in{align-self:stretch}
+  /* The way out of a full-screen mode should not be the smallest thing on it.
+     This was 20px square, with wet or floury hands in the mix. */
+  .cook-close{width:44px;height:44px;margin-right:-10px}
+  .cook-marco-btn{min-height:40px;padding:0 14px;font-size:13px}
+  /* the recipe header actions were 28-31px */
+  .dp-head-actions>button{min-height:40px;padding:0 15px;font-size:13px}
+  .dp-head-actions>.dp-danger{font-size:12px}
 }
 </style>
 </head>
