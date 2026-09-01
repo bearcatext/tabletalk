@@ -565,6 +565,17 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
   .pantry-chips{gap:8px}
   .pantry-chip .chip-x{font-size:15px}
   .pantry-mini,.picker-change{min-height:40px;padding:0 15px;font-size:13px}
+  .shuffle-btn{min-height:40px;padding:0 15px;font-size:13px}
+  .pantry-add input,.pantry-add button{min-height:44px}
+  .pantry-add button{padding:0 18px;font-size:14px}
+  /* iOS Safari zooms the page whenever a focused input is under 16px, and it
+     does not zoom back out. All three inputs were 13px. The viewport tag is
+     deliberately left without maximum-scale so pinch-zoom still works, which
+     means the type size is the fix. */
+  .search-in,#pantry-input,.marco-in{font-size:16px}
+  /* the input was 16px tall inside a 58px bar, so most of the bar was not
+     tappable */
+  .marco-in{align-self:stretch}
 }
 </style>
 </head>
