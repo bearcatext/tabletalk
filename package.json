@@ -1,0 +1,14 @@
+{
+  "name": "tabletalk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tabletalk — a single-file recipe app with a local Claude proxy for Chef Marco",
+  "scripts": {
+    "test": "node test/run.js",
+    "verify": "node tools/verify.js",
+    "proxy": "node marco-proxy.js"
+  },
+  "devDependencies": {
+    "qrcode": "^1.5.4"
+  }
+}

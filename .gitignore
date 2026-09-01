@@ -1,0 +1,6 @@
+# the qrcode package is a dev-only oracle for the QR tests — see test/qr_test.js
+node_modules/
+
+# never commit a key; the proxy reads it from the environment
+.env
+*.local
