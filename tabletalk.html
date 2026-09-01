@@ -583,6 +583,13 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
   /* the recipe header actions were 28-31px */
   .dp-head-actions>button{min-height:40px;padding:0 15px;font-size:13px}
   .dp-head-actions>.dp-danger{font-size:12px}
+  /* The x that drops a meal from the plan was 9px wide by 15 tall. Next to it
+     sat Clear all, which empties the whole plan, at 12px — so the small target
+     was the recoverable action and the big one was not. */
+  .plan-chip{min-height:40px;padding:0 6px 0 14px;font-size:14px}
+  .plan-chip button{width:32px;height:32px;display:flex;align-items:center;
+    justify-content:center;font-size:18px;border-radius:50%}
+  .plan-sec-head button{min-height:40px;display:flex;align-items:center;padding:0 4px}
 }
 </style>
 </head>
