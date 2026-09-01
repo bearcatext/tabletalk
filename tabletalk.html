@@ -589,7 +589,11 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
   .plan-chip{min-height:40px;padding:0 6px 0 14px;font-size:14px}
   .plan-chip button{width:32px;height:32px;display:flex;align-items:center;
     justify-content:center;font-size:18px;border-radius:50%}
-  .plan-sec-head button{min-height:40px;display:flex;align-items:center;padding:0 4px}
+  .plan-sec-head button,.marco-thread-head button{min-height:40px;display:flex;
+    align-items:center;padding:0 4px}
+  /* an underlined word inside a sentence, so it keeps its place in the line
+     and grows the hit box around it */
+  .fresh-note .fresh-cta{display:inline-flex;align-items:center;min-height:38px}
 }
 </style>
 </head>
