@@ -87,33 +87,6 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
   .pantry-section .picker-grid{display:block;overflow:visible}
   .pcard.pantry{width:100%;border-radius:var(--r);min-height:56px;white-space:normal}
   .pcard.pantry .pcard-n{display:block;color:var(--green);font-weight:600}
-  /* Expanding inline shoves the rest of the list a long way down and you lose
-     your place. On a phone the recipe takes the whole screen instead. */
-  .detail-panel{position:fixed;inset:0;z-index:300;margin:0;border:0;border-radius:0;
-    overflow-y:auto;overscroll-behavior:contain;background:var(--paper);
-    animation:none;padding-bottom:24px}
-  .dp-head{flex-direction:column;align-items:stretch;gap:10px;
-    padding:10px 16px 14px}
-  .dp-title{font-size:22px;line-height:1.15}
-  .dp-desc{margin-bottom:0}
-  .dp-stats{gap:0;justify-content:space-between}
-  .stat{text-align:left;flex:1 1 0;min-width:0}
-  .stat-n{font-size:17px}
-  .stat-l{font-size:9px}
-  /* let them wrap instead of overflowing the screen */
-  .dp-head-actions{flex-wrap:wrap;align-items:center}
-  .dp-head-actions>*{flex:0 0 auto}
-  .dp-back{display:flex;align-items:center;justify-content:center;
-    position:fixed;top:10px;left:10px;z-index:310;
-    width:44px;height:44px;border-radius:50%;border:1px solid var(--border2);
-    background:var(--card);color:var(--ink);font-size:20px;cursor:pointer;
-    box-shadow:0 2px 10px rgba(28,24,20,.18)}
-  .detail-panel{padding-top:60px}
-  .dp-emoji{display:none}
-  /* thumbs need a bigger target than a mouse does */
-  .serves-b{width:38px;height:38px;font-size:19px}
-  .card-fav,.card-plan{width:38px;height:38px}
-  .dp-tab{padding:12px 14px}
   .picker-grid{display:flex;flex-wrap:nowrap;gap:8px;overflow-x:auto;
     overscroll-behavior-x:contain;scroll-snap-type:x proximity;
     -webkit-overflow-scrolling:touch;scrollbar-width:none;
@@ -540,6 +513,40 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
 .pg-title{font-family:var(--ff);font-size:24px;font-weight:300;font-style:italic;color:var(--ink)}
 .pg-title b{font-weight:500;font-style:normal;color:var(--accent)}
 .pg-sub{font-size:12px;color:var(--ink3);margin-top:4px}
+
+/* ── PHONE: RECIPE DETAIL ──
+   These override the .dp-* rules above, so they have to come after them. When
+   they lived up beside the picker block the base rules won every shared
+   property and the back button never rendered. */
+@media(max-width:700px){
+  /* Expanding inline shoves the rest of the list a long way down and you lose
+     your place. On a phone the recipe takes the whole screen instead. */
+  .detail-panel{position:fixed;inset:0;z-index:300;margin:0;border:0;border-radius:0;
+    overflow-y:auto;overscroll-behavior:contain;background:var(--paper);
+    animation:none;padding-bottom:24px}
+  .dp-head{flex-direction:column;align-items:stretch;gap:10px;
+    padding:10px 16px 14px}
+  .dp-title{font-size:22px;line-height:1.15}
+  .dp-desc{margin-bottom:0}
+  .dp-stats{gap:0;justify-content:space-between}
+  .stat{text-align:left;flex:1 1 0;min-width:0}
+  .stat-n{font-size:17px}
+  .stat-l{font-size:9px}
+  /* let them wrap instead of overflowing the screen */
+  .dp-head-actions{flex-wrap:wrap;align-items:center}
+  .dp-head-actions>*{flex:0 0 auto}
+  .dp-back{display:flex;align-items:center;justify-content:center;
+    position:fixed;top:10px;left:10px;z-index:310;
+    width:44px;height:44px;border-radius:50%;border:1px solid var(--border2);
+    background:var(--card);color:var(--ink);font-size:20px;cursor:pointer;
+    box-shadow:0 2px 10px rgba(28,24,20,.18)}
+  .detail-panel{padding-top:60px}
+  .dp-emoji{display:none}
+  /* thumbs need a bigger target than a mouse does */
+  .serves-b{width:38px;height:38px;font-size:19px}
+  .card-fav,.card-plan{width:38px;height:38px}
+  .dp-tab{padding:12px 14px}
+}
 </style>
 </head>
 <body>
