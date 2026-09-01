@@ -35,7 +35,8 @@ eq('title matches sort before ingredient-only matches',(function(){
   return firstNon===-1||lastT<firstNon;})(),true);
 eq('all terms must match',(function(){
   return sm('chicken thai').every(function(r){
-    const hay=(r.t+' '+r.c+' '+r.desc+' '+r.ing.map(i=>i.n).join(' ')).toLowerCase();
+    const swaps=r.ing.reduce(function(a,i){return a.concat((i.swaps||[]).map(function(x){return x.n}))},[]);
+    const hay=(r.t+' '+r.c+' '+r.desc+' '+r.ing.map(i=>i.n).join(' ')+' '+swaps.join(' ')).toLowerCase();
     return hay.indexOf('chicken')>=0&&hay.indexOf('thai')>=0;});})(),true);
 eq('impossible pair returns none',sm('carbonara gochujang').length,0);
 eq('no duplicates in results',(function(){const ids=chicken.map(r=>r.id);return ids.length===new Set(ids).size})(),true);

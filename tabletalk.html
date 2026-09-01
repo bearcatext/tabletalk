@@ -310,6 +310,7 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
 .pantry-empty{font-size:12px;color:var(--ink3);font-style:italic;padding:2px 0 8px}
 /* Match badge on cards */
 .match-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;background:#e8f4ee;color:var(--green);white-space:nowrap}
+.match-via{display:block;width:100%;font-size:10.5px;color:var(--green);margin-top:3px;line-height:1.35}
 .match-badge.partial{background:#fdf6e3;color:#92400e}
 .match-badge.low{background:var(--surface);color:var(--ink3)}
 .match-badge i{font-size:11px}
@@ -5424,29 +5425,57 @@ function normIng(s){
 }
 // Fuzzy match: true when every word of the shorter name appears in the longer one.
 // Word-level (not substring) so "egg" does not match "eggplant".
+// "Chicken" should satisfy "Chicken thighs" — the extra word describes the same
+// thing. "Rice" must not satisfy "Rice vinegar", and "Butter" must not satisfy
+// "Peanut butter": there the extra word makes it a different product entirely.
+// The difference is not grammatical, so the words that merely describe are
+// listed and everything else is treated as a change of ingredient.
+const ING_MODIFIER=new Set([
+  'large','small','medium','baby','jumbo','ripe','fresh','dried','frozen','canned',
+  'tinned','cooked','raw','leftover','toasted','smoked','plain','natural','free',
+  'range','organic','unsalted','salted',
+  'red','green','white','yellow','black','purple','jasmine','basmati','arborio',
+  'carnaroli','roma','cherry','salad','greek','flat','leaf','long','short','grain',
+  'thigh','breast','fillet','leg','wing','shoulder','loin','chop','shank','mince',
+  'ground','boneless','skinless','bone','whole','half','piece','zest','juice',
+  'chopped','sliced','diced','minced','grated','crushed','shredded','peeled',
+  'thin','thick','finely','roughly','thinly','trimmed','halved','quartered',
+  // units and forms: a clove of garlic is still garlic
+  'clove','sprig','stalk','head','bulb','stick','bunch','handful','sheet',
+]);
 function pantryHas(ingName){
   const a=normIng(ingName);
   if(!a) return false;
-  const wa=a.split(' ');
+  const wa=a.split(" ");
   for(const p of pantry){
     const b=normIng(p);
     if(!b) continue;
     if(a===b) return true;
-    const wb=b.split(' ');
+    const wb=b.split(" ");
     const [shortW,longW]=wa.length<=wb.length?[wa,wb]:[wb,wa];
-    if(shortW.every(w=>longW.includes(w))) return true;
+    if(!shortW.length||!shortW.every(w=>longW.includes(w))) continue;
+    const extra=longW.filter(w=>!shortW.includes(w));
+    if(extra.every(w=>ING_MODIFIER.has(w))) return true;
   }
   return false;
 }
 // Scores a recipe against the pantry, honouring any swap the user has applied.
+// The catalogue carries 1,115 substitutions, each written with an amount and a
+// note. Ignoring them when deciding what you can cook wastes the best thing in
+// the data: a recipe wanting guanciale is within reach if you have bacon, and
+// the app already knows that.
 function pantryMatch(r){
-  let have=0; const missing=[];
+  let have=0; const missing=[], via=[];
   r.ing.forEach((ing,i)=>{
     const n=getIngName(r.id,i);
-    if(pantryHas(n)) have++; else missing.push(n);
+    if(pantryHas(n)){have++;return}
+    const alt=(ing.swaps||[]).find(s=>pantryHas(s.n));
+    if(alt){have++;via.push({from:ing.n,to:alt.n});return}
+    missing.push(n);
   });
   const total=r.ing.length;
-  return {have:have,total:total,pct:total?have/total:0,missing:total-have,missingNames:missing};
+  return {have:have,total:total,pct:total?have/total:0,
+          missing:total-have,missingNames:missing,via:via};
 }
 // Full catalogue ordered by how close the user is to being able to cook it.
 // A sort alone could not answer "what can I cook tonight" — everything stayed
@@ -5461,12 +5490,18 @@ function pantryRanked(){
   return scored.filter(x=>x.m.missing<=PANTRY_MAX_MISSING).map(x=>x.r);
 }
 function matchBadgeHtml(r){
-  if(!pantry.size) return '';
+  if(!pantry.size) return "";
   const m=pantryMatch(r);
-  const cls=m.pct===1?'':(m.pct>=.6?' partial':' low');
-  const icon=m.pct===1?'ti-circle-check':'ti-basket';
-  const label=m.pct===1?`all ${m.total} ingredients`:(m.missing<=2?`need ${m.missingNames.join(', ')}`:`${m.have}/${m.total} ingredients`);
-  return `<span class="match-badge${cls}"><i class="ti ${icon}"></i>${label}</span>`;
+  const cls=m.pct===1?"":(m.pct>=.6?" partial":" low");
+  const icon=m.pct===1?"ti-circle-check":"ti-basket";
+  const label=m.pct===1?`all ${m.total} ingredients`
+    :(m.missing<=2?`need ${m.missingNames.join(", ")}`:`${m.have}/${m.total} ingredients`);
+  // say which substitution is carrying it, so nobody opens the recipe and
+  // finds an ingredient they were told they had
+  const via=m.via.length
+    ? `<span class="match-via">via ${m.via.map(v=>`${v.to} for ${v.from.toLowerCase()}`).join(", ")}</span>`
+    : "";
+  return `<span class="match-badge${cls}"><i class="ti ${icon}"></i>${label}</span>${via}`;
 }
 
 function refreshPantryViews(){
@@ -6588,6 +6623,9 @@ function searchMatches(q){
     const words=title.split(/[^a-z0-9]+/).filter(Boolean);
     const cuisine=r.c.toLowerCase();
     const ings=r.ing.map(i=>i.n.toLowerCase());
+    // an ingredient offered as a swap still counts, just not as strongly as one
+    // the recipe actually calls for
+    const alts=r.ing.reduce((a,i)=>a.concat((i.swaps||[]).map(s=>s.n.toLowerCase())),[]);
     const desc=(r.desc||'').toLowerCase();
     let score=f.cats.length*20+(f.quick?20:0), ok=true;
     for(const t of f.terms){
@@ -6597,6 +6635,7 @@ function searchMatches(q){
       else if(title.includes(t)) s=60;
       else if(cuisine.includes(t)) s=40;
       else if(ings.some(n=>n.includes(t))) s=30;
+      else if(alts.some(n=>n.includes(t))) s=15;
       else if(desc.includes(t)) s=10;
       if(!s){ok=false;break}
       score+=s;

@@ -92,5 +92,52 @@ console.log('\n-- persistence --');
 pantry.clear(); pantry.add('Miso paste'); ctx.save();
 eq('pantry persisted', JSON.parse(store['dw_pantry']), ['Miso paste']);
 
+console.log('-- an ingredient is not its head noun --');
+// Subset matching alone said butter satisfies peanut butter. The extra word has
+// to be one that describes the same thing, not one that changes the product.
+pantry.clear();
+[['Rice','Rice vinegar',false],['Rice','Rice noodles',false],
+ ['Butter','Peanut butter',false],['Milk','Coconut milk',false],
+ ['Rice','Jasmine rice',true],['Rice','Cooked rice',true],
+ ['Lemon','Lemon zest',true],['Garlic','Garlic cloves',true],
+ ['Chicken','Chicken thighs, boneless',true],['Chicken thighs','Chicken',true]]
+  .forEach(function(c){
+    pantry.clear();pantry.add(c[0]);
+    eq('have '+c[0]+(c[2]?' covers ':' does not cover ')+c[1],ctx.pantryHas(c[1]),c[2]);
+  });
+
+console.log('-- a swap you own counts --');
+pantry.clear();
+['Olive oil','Garlic','Salt','Black pepper','Spaghetti','Canned tomatoes','Eggs',
+ 'Yellow onion','Butter','Lemon','Rice','Soy sauce','Chicken thighs','Carrot',
+ 'Bacon','Chicken broth'].forEach(function(x){pantry.add(x)});
+// compare against the same pantry with swaps ignored, rather than a number
+// that moves every time the matcher or the catalogue changes
+eq('crediting a swap reaches further than literal matches',(function(){
+  const literal=RECIPES.filter(function(r){
+    return r.ing.filter(function(ing,i){return !ctx.pantryHas(ctx.getIngName(r.id,i))}).length<=2}).length;
+  return ctx.pool('pantry').length>literal;})(),true);
+eq('and every recipe in it is genuinely within reach',
+  ctx.pool('pantry').every(function(r){return ctx.pantryMatch(r).missing<=G('PANTRY_MAX_MISSING')}),true);
+eq('substitutions are reported, not hidden',(function(){
+  const withVia=ctx.pool('pantry').filter(function(r){return ctx.pantryMatch(r).via.length});
+  if(!withVia.length) return false;
+  return ctx.matchBadgeHtml(withVia[0]).indexOf('match-via')>=0;})(),true);
+eq('a reported swap is one the recipe actually offers',(function(){
+  return ctx.pool('pantry').every(function(r){
+    return ctx.pantryMatch(r).via.every(function(v){
+      const ing=r.ing.find(function(i){return i.n===v.from});
+      return ing&&(ing.swaps||[]).some(function(s){return s.n===v.to});});});})(),true);
+eq('search finds recipes offering it as a swap',(function(){
+  const m=ctx.searchMatches('chicken');
+  const viaSwap=m.filter(function(r){
+    return !r.ing.some(function(i){return /chicken/i.test(i.n)})
+      && r.ing.some(function(i){return (i.swaps||[]).some(function(x){return /chicken/i.test(x.n)})});});
+  return viaSwap.length>0;})(),true);
+eq('but a direct match still leads',(function(){
+  const first=ctx.searchMatches('chicken')[0];
+  return first.ing.some(function(i){return /chicken/i.test(i.n)})||/chicken/i.test(first.t);})(),true);
+pantry.clear();
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exitCode=fail?1:0;
