@@ -151,6 +151,56 @@ eq('and clicking opens it in Discover',/jumpToRecipe/.test(html),true);
     /never offer to write something new while a decent match/.test(G('MARCO_PERSONA')),true);
   eq('and to say what a close match misses',/name what they don/.test(G('MARCO_PERSONA')),true);
 
+  console.log('-- Marco without a proxy --');
+  // The retrieval was always local; only the phrasing needed the API. So when
+  // there is no proxy, read the answer out instead of telling a stranger to run
+  // a server they do not have.
+  S('cookRecipeId',null);S('marcoHistory',[]);
+  const la=q=>ctx.marcoLocalAnswer(q);
+  const RM=G('ALL_RECIPES');
+
+  eq('an amount comes back with the real figure',
+    /150g/.test(la('how much guanciale in carbonara').text),true);
+  eq('and names the dish it came from',
+    /carbonara/i.test(la('how much guanciale in carbonara').text),true);
+  eq('naming a dish scopes the answer to it',
+    /does not list/.test(la('how much garlic in the korma').text),true);
+  eq('rather than quoting an unrelated recipe',
+    /teriyaki/i.test(la('how much garlic in the korma').text),false);
+  eq('an ingredient inside the dish name still resolves',
+    /chicken thighs/i.test(la('how much chicken in the korma').text),true);
+
+  eq('substitutions come from the recipe',
+    /pancetta/i.test(la('what can I use instead of guanciale').text),true);
+  eq('and carry their amounts',
+    /150g/.test(la('what can I use instead of guanciale').text),true);
+  eq('a bare ingredient finds a recipe that has alternatives',
+    la('what can I use instead of fish sauce').text.indexOf('Instead of')===0,true);
+
+  eq('timing includes the make-ahead split',
+    /can be done ahead/.test(la('how long does the korma take').text),true);
+  eq('steps are listed in order',
+    /1\. Cook the rice/.test(la('what are the steps for stuffed peppers').text),true);
+  eq('ingredients can be listed',
+    /cashews/i.test(la('whats in the korma').text),true);
+
+  eq('an ingredient question returns recipes',
+    la('what can I make with chicken and rice').recipe_ids.length>0,true);
+  eq('and they are real ids',
+    la('what can I make with chicken and rice').recipe_ids.every(function(id){
+      return RM.some(function(r){return r.id===id})}),true);
+  eq('filters still apply offline',
+    la('something quick and vegan').recipe_ids.every(function(id){
+      const r=RM.find(function(x){return x.id===id});
+      return r.mins<=G('QUICK_MINS')&&ctx.dietStatus(r,'vgn').ok}),true);
+
+  eq('it admits what it cannot do',la('something impressive for guests'),null);
+  eq('rather than guessing',la('surprise me'),null);
+
+  eq('the offline path no longer tells a stranger to run a server',(function(){
+    const src=fs.readFileSync(APP,'utf8');
+    return src.indexOf('marcoLocalAnswer(q)')>0;})(),true);
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exitCode=fail?1:0;
 })();

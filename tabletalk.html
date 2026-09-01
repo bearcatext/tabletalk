@@ -515,6 +515,7 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
 .typing span:nth-child(2){animation-delay:.18s}
 .typing span:nth-child(3){animation-delay:.36s}
 @keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}
+.marco-local{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink3);margin-top:6px}
 .marco-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-top:10px}
 .mmc{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:9px 12px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:all .15s}
 .mmc:hover{background:var(--card);border-color:var(--border2)}
@@ -7674,6 +7675,141 @@ function marcoCandidates(q){
     list:scored.sort((a,b)=>b.hit-a.hit||a.r.mins-b.r.mins).slice(0,MARCO_SHORTLIST).map(x=>x.r)};
 }
 
+// ─── MARCO WITHOUT A PROXY ───────────────────────────────────────────────────
+// The matching was always local. marcoContextMessage works out which recipes
+// answer the question and attaches their amounts, swaps and steps — then sends
+// the lot away purely so the reply can be phrased. Without a proxy the phrasing
+// is gone, but the answer is not.
+//
+// So rather than telling someone who has no proxy to run one, read the answer
+// out plainly. This handles the questions that are lookups against data we
+// already hold. Anything needing judgement — "something impressive but not
+// fiddly" — genuinely does need the model, and says so.
+
+// Strip the question scaffolding and the dish name, leaving the thing being
+// asked about.
+const ASK_WORDS=new Set(['how','much','many','long','what','whats','which','is','are',
+  'do','does','did','i','we','you','need','needs','use','using','used','for','in','on',
+  'the','a','an','of','to','instead','substitute','sub','replace','swap','swapped',
+  'can','could','with','without','take','takes','make','makes','made','cook','cooking',
+  'there','any','put','goes','go','it','me','my','this','that','and','or','be','get']);
+function questionSubject(q,r){
+  const clean=t=>t.split(' ').filter(Boolean).filter(w=>!ASK_WORDS.has(w));
+  const base=String(q||'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+  let s=' '+base+' ';
+  if(r) titleWords(r.t).forEach(w=>{s=s.split(' '+w+' ').join(' ')});
+  const stripped=clean(s).join(' ').trim();
+  if(stripped) return stripped;
+  // the ingredient can be part of the dish name — "chicken" in "Chicken korma" —
+  // so removing the title can remove the very thing being asked about
+  if(r){
+    const back=clean(base).find(w=>ingredientIn(r,w));
+    if(back) return back;
+  }
+  return '';
+}
+
+// Look in the dish being discussed first, then anywhere in the catalogue.
+function findIngredient(r,term){
+  const t=normIng(term);
+  if(!t) return null;
+  const wt=t.split(' ');
+  const match=ing=>{
+    const n=normIng(ing.n);
+    if(!n) return false;
+    const wn=n.split(' ');
+    return wt.every(w=>wn.includes(w))||wn.every(w=>wt.includes(w));
+  };
+  if(r){const ing=r.ing.find(match);if(ing) return {recipe:r,ing:ing}}
+  const vis=ALL_RECIPES.filter(x=>!hidden.has(x.id));
+  // a recipe that lists alternatives answers the question; one that calls it
+  // core only tells you no
+  for(const x of vis){
+    const ing=x.ing.find(i=>match(i)&&(i.swaps||[]).length);
+    if(ing) return {recipe:x,ing:ing};
+  }
+  for(const x of vis){
+    const ing=x.ing.find(match);
+    if(ing) return {recipe:x,ing:ing};
+  }
+  return null;
+}
+
+function ingredientIn(r,term){
+  const t=normIng(term);
+  if(!r||!t) return null;
+  const wt=t.split(' ');
+  return r.ing.find(ing=>{
+    const n=normIng(ing.n);
+    if(!n) return false;
+    const wn=n.split(' ');
+    return wt.every(w=>wn.includes(w))||wn.every(w=>wt.includes(w));
+  })||null;
+}
+
+function marcoLocalAnswer(q){
+  const ql=' '+String(q||'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ')+' ';
+  const has=(...w)=>w.some(x=>ql.indexOf(' '+x+' ')>=0);
+  const r=recipesInPlay(q)[0]||null;
+  const subject=questionSubject(q,r);
+
+  // what could I use instead of this
+  if(has('instead','substitute','sub','replace','swap','swaps','alternative','alternatives')){
+    if(r&&subject&&!ingredientIn(r,subject))
+      return {text:`${r.t} does not list ${subject}, so there is nothing to swap.`,recipe_ids:[r.id]};
+    const hit=findIngredient(r,subject);
+    if(hit&&(hit.ing.swaps||[]).length){
+      const list=hit.ing.swaps.map(s=>`${s.amt} ${s.n} (${s.note})`).join('; ');
+      return {text:`Instead of ${hit.ing.n.toLowerCase()} in ${hit.recipe.t} — ${list}.`,
+              recipe_ids:[hit.recipe.id]};
+    }
+    if(hit) return {text:`${hit.recipe.t} treats ${hit.ing.n.toLowerCase()} as core, so there is no swap written for it.`,
+                    recipe_ids:[hit.recipe.id]};
+  }
+
+  // how much of it
+  if(has('how')&&(has('much')||has('many'))){
+    if(r&&subject&&!ingredientIn(r,subject))
+      return {text:`${r.t} does not list ${subject}.`,recipe_ids:[r.id]};
+    const hit=findIngredient(r,subject);
+    if(hit){
+      const rec=hit.recipe, f=servesFactor(rec);
+      const amt=scaleAmount(hit.ing.amt,f);
+      const at=servesOf(rec)!==baseServes(rec)?`, at ${servesOf(rec)} servings`:'';
+      return {text:`${withUS(amt)} of ${hit.ing.n.toLowerCase()} in ${rec.t}${at}.`,
+              recipe_ids:[rec.id]};
+    }
+  }
+
+  // how long does it take
+  if(r&&has('how')&&(has('long')||has('time'))){
+    const split=hasAhead(r)?` — ${aheadMins(r)} of that can be done ahead, leaving ${nightMins(r)} on the night`:'';
+    return {text:`${r.t} takes ${r.mins} minutes${split}.`,recipe_ids:[r.id]};
+  }
+
+  // what are the steps
+  if(r&&(has('step','steps')||(has('how')&&has('make','cook','do')))){
+    return {text:`${r.t}, ${r.steps.length} steps — ${r.steps.map((s,i)=>`${i+1}. ${s.t}`).join(', ')}. Tap it for the detail.`,
+            recipe_ids:[r.id]};
+  }
+
+  // what is in it
+  if(r&&(has('ingredients')||((has('what')||has('whats'))&&(has('in')||has('need'))))){
+    return {text:`${r.t} needs ${r.ing.map(i=>i.n.toLowerCase()).join(', ')}.`,recipe_ids:[r.id]};
+  }
+
+  // what can I make — the matcher answers this on its own
+  const cand=marcoCandidates(q);
+  if(cand.list.length){
+    const n=cand.list.length;
+    return {text:cand.exact
+        ? (n===1?`One of your recipes matches that.`:`${n} of your recipes match that.`)
+        : `Nothing matches every part of that, but these come closest.`,
+      recipe_ids:cand.list.slice(0,4).map(x=>x.id)};
+  }
+  return null;
+}
+
 function marcoContextMessage(userText){
   const parts=[];
   if(cookRecipeId){
@@ -7756,7 +7892,7 @@ function renderMarco(){
   }
   marcoHistory.forEach(m=>{
     if(m.role==='user') h+=marcoBubble('user',esc(m.content));
-    else h+=marcoBubble('assistant',`<div>${esc(m.text)}</div>${marcoCardsHtml(m.recipe_ids)}${marcoOfferHtml(m)}`);
+    else h+=marcoBubble('assistant',`<div>${esc(m.text)}</div>${m.local?'<div class="marco-local">from your recipes</div>':''}${marcoCardsHtml(m.recipe_ids)}${marcoOfferHtml(m)}`);
   });
   if(marcoPending) h+=marcoBubble('assistant','<div class="typing"><span></span><span></span><span></span></div>');
   if(marcoError) h+=marcoBubble('assistant',`<div>${marcoError}</div>`,'err');
@@ -7799,9 +7935,19 @@ async function askMarco(fromCook){
     save();
   }catch(e){
     const offline=/Failed to fetch|NetworkError|load failed/i.test(e.message);
-    marcoError=offline
-      ? `Marco isn't running. Start the proxy first:<br><code class="marco-code">node marco-proxy.js</code>`
-      : `Something went wrong — ${esc(e.message)}`;
+    if(offline){
+      // the retrieval never needed the proxy, only the phrasing did
+      const local=marcoLocalAnswer(q);
+      if(local){
+        marcoHistory.push({role:"assistant",text:local.text,recipe_ids:local.recipe_ids||[],local:true});
+        save();
+      } else {
+        marcoError="I can look things up in your recipes — name an ingredient, a dish, or "
+          +"say what you fancy. Anything more open-ended needs the proxy running.";
+      }
+    } else {
+      marcoError=`Something went wrong — ${esc(e.message)}`;
+    }
     console.error('[marco]',e);
   }finally{
     marcoPending=false;renderMarco();
