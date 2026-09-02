@@ -150,5 +150,12 @@ resetSel();
 eq('nothing selected reads as all cuisines',ctx.selLabel(),'All cuisines');
 resetSel();
 
+
+resetSel();
+eq('all cuisines is not lit before you touch anything',ctx.selHas('all'),false);
+ctx.selectCuisine('Italian');ctx.selectCuisine('all');
+eq('but is once you clear the group yourself',ctx.selHas('all'),true);
+resetSel();
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exitCode=fail?1:0;

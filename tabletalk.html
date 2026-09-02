@@ -6330,7 +6330,7 @@ function selEmpty(){return !(sel.cuisines.length||sel.diets.length||sel.efforts.
 function selAny(){return !!mode||started}
 function selHas(id){
   if(mode) return mode===id;
-  if(id==='all') return !sel.cuisines.length;
+  if(id==='all') return started&&!sel.cuisines.length;
   return sel[selGroup(id)].indexOf(id)>=0;
 }
 function soleCuisine(){return sel.cuisines.length===1?sel.cuisines[0]:null}
