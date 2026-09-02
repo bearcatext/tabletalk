@@ -4,7 +4,7 @@ const APP=process.argv[2]||path.join(__dirname,'..','tabletalk.html');
 const code=fs.readFileSync(APP,'utf8').match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/)[1]
   + "\n;globalThis.__g=n=>eval(n);globalThis.__s=(n,v)=>{eval(n+'=v')};";
 const store={};const els={};
-const stub=id=>els[id]||(els[id]={id,innerHTML:'',className:'',style:{},value:'',scrollTop:0,scrollHeight:100,
+const stub=id=>els[id]||(els[id]={setAttribute(){},removeAttribute(){},hidden:false,id,innerHTML:'',className:'',style:{},value:'',scrollTop:0,scrollHeight:100,
   classList:{add(){},remove(){},toggle(){}},querySelector:()=>stub('x'),querySelectorAll:()=>[],focus(){},textContent:''});
 let sent=null;
 const ctx={localStorage:{getItem:k=>store[k]??null,setItem:(k,v)=>store[k]=String(v)},
@@ -34,7 +34,7 @@ const ask=async(text,fromCook)=>{stub(fromCook?'cook-marco-in':'marco-in').value
   eq('whole conversation resent',sent.messages.filter(m=>m.role==='user').length,2);
   eq('assistant turns resent',sent.messages.filter(m=>m.role==='assistant').length,1);
   eq('assistant sent as plain text',typeof sent.messages[1].content,'string');
-  eq('history persisted',JSON.parse(store['dw_marco']).length,4);
+  eq('history persisted',JSON.parse(store[ctx.pkey('dw_marco')]).length,4);
 
   // caching prefix unchanged between turns
   eq('system still 2 blocks',sent.system.length,2);
@@ -84,7 +84,7 @@ const ask=async(text,fromCook)=>{stub(fromCook?'cook-marco-in':'marco-in').value
   // clear
   ctx.clearMarco();
   eq('clear empties history',G('marcoHistory').length,0);
-  eq('clear persists',JSON.parse(store['dw_marco']).length,0);
+  eq('clear persists',JSON.parse(store[ctx.pkey('dw_marco')]).length,0);
 
   // transcript rendering
   S('marcoHistory',[{role:'user',content:'<script>x</script>'},{role:'assistant',text:'hi',recipe_ids:[1]}]);

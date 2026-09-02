@@ -4,7 +4,7 @@ const APP=process.argv[2]||path.join(__dirname,'..','tabletalk.html');
 const code=fs.readFileSync(APP,'utf8').match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/)[1]
   + "\n;globalThis.__g=n=>eval(n);globalThis.__s=(n,v)=>{eval(n+'=v')};";
 const store={};const els={};
-const stub=id=>els[id]||(els[id]={innerHTML:'',className:'',style:{},value:'',classList:{add(){},remove(){},toggle(){}},querySelector:()=>stub('x'),querySelectorAll:()=>[],focus(){}});
+const stub=id=>els[id]||(els[id]={setAttribute(){},removeAttribute(){},hidden:false,innerHTML:'',className:'',style:{},value:'',classList:{add(){},remove(){},toggle(){}},querySelector:()=>stub('x'),querySelectorAll:()=>[],focus(){}});
 const ctx={localStorage:{getItem:k=>store[k]??null,setItem:(k,v)=>store[k]=String(v)},
   document:{getElementById:stub,querySelectorAll:()=>[],addEventListener(){},
     createElement:()=>({getContext:()=>({font:'',measureText:t=>({width:t==='\uFFFF'?10:(t==='\u{1FAD9}'?10:20)})})})},
@@ -62,7 +62,7 @@ S('shownIds',[victim]);ctx.hideRecipe(victim);
 eq('hidden leaves pool',ctx.pool('all').some(r=>r.id===victim),false);
 eq('hidden still resolvable by id',!!G('ALL_RECIPES').find(r=>r.id===victim),true);
 eq('hidden dropped from favourites',G('favorites').includes(victim),false);
-eq('hidden persisted',JSON.parse(store['dw_hidden']).includes(victim),true);
+eq('hidden persisted',JSON.parse(store[ctx.pkey('dw_hidden')]).includes(victim),true);
 ctx.unhideAll();
 eq('unhide restores',ctx.pool('all').some(r=>r.id===victim),true);
 
@@ -70,7 +70,7 @@ eq('unhide restores',ctx.pool('all').some(r=>r.id===victim),true);
 ctx.deleteGenerated(id);
 eq('deleted leaves catalogue',!!G('ALL_RECIPES').find(r=>r.id===id),false);
 eq('catalogue back to base',G('ALL_RECIPES').length,base);
-eq('deletion persisted',JSON.parse(store['dw_generated']).length,0);
+eq('deletion persisted',JSON.parse(store[ctx.pkey('dw_generated')]).length,0);
 
 // generate button availability
 S('sel',{cuisines:['Italian'],diets:[],efforts:[]});S('mode',null);S('started',true);eq('generate offered for one cuisine',ctx.canGenerate(),true);

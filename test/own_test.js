@@ -4,7 +4,7 @@ const APP=process.argv[2]||path.join(__dirname,'..','tabletalk.html');
 const code=fs.readFileSync(APP,'utf8').match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/)[1]
   + "\n;globalThis.__g=n=>eval(n);globalThis.__s=(n,v)=>{eval(n+'=v')};";
 const store={};const els={};
-const stub=id=>els[id]||(els[id]={id,innerHTML:'',className:'',style:{},value:'',scrollTop:0,scrollHeight:1,
+const stub=id=>els[id]||(els[id]={setAttribute(){},removeAttribute(){},hidden:false,id,innerHTML:'',className:'',style:{},value:'',scrollTop:0,scrollHeight:1,
   classList:{add(){},remove(){},toggle(){},contains:()=>false},querySelector:()=>stub('x'),querySelectorAll:()=>[],focus(){},textContent:''});
 const ctx={localStorage:{getItem:k=>store[k]??null,setItem:(k,v)=>store[k]=String(v)},
   document:{getElementById:stub,querySelectorAll:()=>[],addEventListener(){},body:{style:{}},
@@ -65,7 +65,7 @@ eq('core ingredient has no swaps',r.ing[0].swaps,undefined);
 eq('swappable ingredient keeps them',r.ing[1].swaps.length,1);
 eq('empty tip stripped',r.steps[0].tip,undefined);
 eq('real tip kept',r.steps[1].tip,'Watch the edges.');
-eq('persisted',JSON.parse(store['dw_generated']).some(x=>x.t==='My Test Bake'),true);
+eq('persisted',JSON.parse(store[ctx.pkey('dw_generated')]).some(x=>x.t==='My Test Bake'),true);
 
 // ── findability ──
 eq('appears in its cuisine',ctx.pool('Italian').some(x=>x.id===r.id),true);

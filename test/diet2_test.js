@@ -4,7 +4,7 @@ const APP=process.argv[2]||path.join(__dirname,'..','tabletalk.html');
 const code=fs.readFileSync(APP,'utf8').match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/)[1]
   + "\n;globalThis.__g=n=>eval(n);globalThis.__s=(n,v)=>{eval(n+'=v')};";
 const els={};
-const stub=id=>els[id]||(els[id]={id,innerHTML:'',className:'',style:{},value:'',scrollTop:0,scrollHeight:1,
+const stub=id=>els[id]||(els[id]={setAttribute(){},removeAttribute(){},hidden:false,id,innerHTML:'',className:'',style:{},value:'',scrollTop:0,scrollHeight:1,
   classList:{add(){},remove(){},toggle(){}},querySelector:()=>stub('x'),querySelectorAll:()=>[],focus(){}});
 const ctx={localStorage:{getItem:()=>null,setItem:()=>{}},
   document:{getElementById:stub,querySelectorAll:()=>[],addEventListener(){},body:{style:{}},

@@ -5,7 +5,7 @@ const html=fs.readFileSync(APP,'utf8');
 const code=html.match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/)[1]
   + "\n;globalThis.__get=n=>eval(n);globalThis.__set=(n,v)=>{eval(n+'=v')};";
 const store={};
-const stubEl=()=>({innerHTML:'',style:{},textContent:'',value:'',classList:{add(){},remove(){},toggle(){}},querySelector:()=>stubEl(),querySelectorAll:()=>[],focus(){}});
+const stubEl=()=>({setAttribute(){},removeAttribute(){},hidden:false,innerHTML:'',style:{},textContent:'',value:'',classList:{add(){},remove(){},toggle(){}},querySelector:()=>stubEl(),querySelectorAll:()=>[],focus(){}});
 const ctx={localStorage:{getItem:k=>store[k]??null,setItem:(k,v)=>store[k]=String(v)},
   document:{getElementById:()=>stubEl(),querySelectorAll:()=>[],addEventListener(){}},
   window:{},console,fetch:()=>Promise.reject(new Error('no net'))};
@@ -90,7 +90,7 @@ eq('null clears swap', G('swaps')[key], undefined);
 
 console.log('\n-- persistence --');
 pantry.clear(); pantry.add('Miso paste'); ctx.save();
-eq('pantry persisted', JSON.parse(store['dw_pantry']), ['Miso paste']);
+eq('pantry persisted under the active profile', JSON.parse(store[ctx.pkey('dw_pantry')]), ['Miso paste']);
 
 console.log('-- an ingredient is not its head noun --');
 // Subset matching alone said butter satisfies peanut butter. The extra word has

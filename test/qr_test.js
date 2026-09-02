@@ -6,7 +6,7 @@ try{QR=require('qrcode')}catch(e){}
 const code=fs.readFileSync(APP,'utf8').match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/)[1]
   + "\n;globalThis.__g=n=>eval(n);globalThis.__s=(n,v)=>{eval(n+'=v')};";
 const store={};const els={};
-const stub=id=>els[id]||(els[id]={id,innerHTML:'',className:'',style:{},value:'',scrollTop:0,scrollHeight:1,
+const stub=id=>els[id]||(els[id]={setAttribute(){},removeAttribute(){},hidden:false,id,innerHTML:'',className:'',style:{},value:'',scrollTop:0,scrollHeight:1,
   classList:{add(){},remove(){},toggle(){},contains:()=>false},querySelector:()=>stub('x'),querySelectorAll:()=>[],focus(){},textContent:''});
 const ctx={localStorage:{getItem:k=>store[k]??null,setItem:(k,v)=>store[k]=String(v)},
   document:{getElementById:stub,querySelectorAll:()=>[],addEventListener(){},body:{style:{}},

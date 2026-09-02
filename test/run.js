@@ -16,7 +16,7 @@ if (!fs.existsSync(APP)) {
   process.exit(2);
 }
 
-const SUITES = ['test', 'picker_test', 'gen_test', 'fresh_test', 'marco_test',
+const SUITES = ['test', 'picker_test', 'profile_test', 'gen_test', 'fresh_test', 'marco_test',
   'diet2_test', 'allergy_test', 'plan_test', 'own_test', 'qr_test', 'search_test'];
 
 const run = f => execFileSync(process.execPath, [path.join(__dirname, f), APP],

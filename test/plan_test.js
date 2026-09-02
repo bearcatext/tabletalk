@@ -4,7 +4,7 @@ const APP=process.argv[2]||path.join(__dirname,'..','tabletalk.html');
 const code=fs.readFileSync(APP,'utf8').match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/)[1]
   + "\n;globalThis.__g=n=>eval(n);globalThis.__s=(n,v)=>{eval(n+'=v')};";
 const store={};const els={};
-const stub=id=>els[id]||(els[id]={id,innerHTML:'',className:'',style:{},value:'',scrollTop:0,scrollHeight:1,
+const stub=id=>els[id]||(els[id]={setAttribute(){},removeAttribute(){},hidden:false,id,innerHTML:'',className:'',style:{},value:'',scrollTop:0,scrollHeight:1,
   classList:{add(){},remove(){},toggle(){},contains:()=>false},querySelector:()=>stub('x'),querySelectorAll:()=>[],focus(){},textContent:''});
 const ctx={localStorage:{getItem:k=>store[k]??null,setItem:(k,v)=>store[k]=String(v)},
   document:{getElementById:stub,querySelectorAll:()=>[],addEventListener(){},body:{style:{}},
@@ -83,7 +83,7 @@ delete ctx.globalThis.navigator.share;
 S('plan',new Set());
 ctx.togglePlan(1);
 eq('adds to plan',ctx.inPlan(1),true);
-eq('plan persists',JSON.parse(store['dw_plan']),[1]);
+eq('plan persists',JSON.parse(store[ctx.pkey('dw_plan')]),[1]);
 ctx.togglePlan(1);
 eq('removes from plan',ctx.inPlan(1),false);
 G('plan').add(1);G('plan').add(2);ctx.clearPlan();

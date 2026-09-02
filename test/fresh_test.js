@@ -4,7 +4,7 @@ const APP=process.argv[2]||path.join(__dirname,'..','tabletalk.html');
 const code=fs.readFileSync(APP,'utf8').match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/)[1]
   + "\n;globalThis.__g=n=>eval(n);globalThis.__s=(n,v)=>{eval(n+'=v')};";
 const store={};const els={};
-const stub=id=>els[id]||(els[id]={innerHTML:'',className:'',style:{},value:'',classList:{add(){},remove(){},toggle(){}},querySelector:()=>stub('x'),querySelectorAll:()=>[],focus(){},textContent:''});
+const stub=id=>els[id]||(els[id]={setAttribute(){},removeAttribute(){},hidden:false,innerHTML:'',className:'',style:{},value:'',classList:{add(){},remove(){},toggle(){}},querySelector:()=>stub('x'),querySelectorAll:()=>[],focus(){},textContent:''});
 const ctx={localStorage:{getItem:k=>store[k]??null,setItem:(k,v)=>store[k]=String(v)},
   document:{getElementById:stub,querySelectorAll:()=>[],addEventListener(){},body:{style:{}},
     createElement:()=>({getContext:()=>({font:'',measureText:()=>({width:20})})})},
@@ -55,7 +55,7 @@ S('seen',{});S('cooked',{});
 const r0=G('ALL_RECIPES')[0];
 ctx.startCook(r0.id);
 eq('cook recorded',G('cooked')[r0.id].n,1);
-eq('cook count persists',JSON.parse(store['dw_cooked'])[r0.id].n,1);
+eq('cook count persists',JSON.parse(store[ctx.pkey('dw_cooked')])[r0.id].n,1);
 ctx.startCook(r0.id);
 eq('cook count increments',G('cooked')[r0.id].n,2);
 eq('cooking does not mark seen',G('seen')[r0.id],undefined);
@@ -75,6 +75,6 @@ Object.entries(paths).forEach(([name,fn])=>{
   eq(name+' marks its page seen',ids.length>0&&ids.every(id=>G('seen')[id]),true);
 });
 
-eq('seen persists',typeof JSON.parse(store['dw_seen']),'object');
+eq('seen persists',typeof JSON.parse(store[ctx.pkey('dw_seen')]),'object');
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exitCode=fail?1:0;

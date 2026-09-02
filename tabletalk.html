@@ -515,6 +515,47 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
 .pg-title b{font-weight:500;font-style:normal;color:var(--accent)}
 .pg-sub{font-size:12px;color:var(--ink3);margin-top:4px}
 
+/* ── WHO IS COOKING ── */
+.who-btn{margin-left:12px;width:38px;height:38px;border-radius:50%;padding:0;
+  border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.09);
+  color:var(--chalk);cursor:pointer;display:flex;align-items:center;
+  justify-content:center;font-size:18px;flex-shrink:0;transition:background .15s}
+.who-btn:hover{background:rgba(255,255,255,.18)}
+.who-fl{line-height:1}
+.who-overlay{position:fixed;inset:0;background:rgba(28,24,20,.5);z-index:400;
+  display:flex;align-items:center;justify-content:center;padding:20px}
+.who-sheet{background:var(--card);border:1px solid var(--border);border-radius:var(--rl);
+  padding:20px;width:100%;max-width:380px;max-height:85vh;overflow-y:auto;
+  box-shadow:0 12px 40px rgba(28,24,20,.3)}
+.who-head{font-family:var(--ff);font-size:19px;font-weight:600;color:var(--ink);margin-bottom:12px}
+.who-sub{font-size:13px;color:var(--ink2);margin:0 0 12px}
+.who-list{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.who-row{display:flex;gap:6px;align-items:stretch}
+.who-pick{flex:1;min-width:0;display:flex;align-items:center;gap:10px;min-height:52px;
+  padding:0 14px;border:1px solid var(--border2);border-radius:var(--r);background:var(--paper);
+  cursor:pointer;font-family:var(--fb);font-size:15px;color:var(--ink);text-align:left}
+.who-row.on .who-pick{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.who-nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.who-now{margin-left:auto;font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em}
+.who-cog{width:44px;flex-shrink:0;border:1px solid var(--border2);border-radius:var(--r);
+  background:var(--paper);color:var(--ink3);cursor:pointer}
+.who-in{width:100%;min-height:44px;padding:0 14px;margin-bottom:10px;border:1px solid var(--border2);
+  border-radius:var(--r);font-family:var(--fb);font-size:16px;color:var(--ink);
+  background:var(--paper);outline:none}
+.who-in:focus{border-color:var(--accent)}
+.who-emoji{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.who-e{width:44px;height:44px;border:1px solid var(--border2);border-radius:var(--r);
+  background:var(--paper);font-size:20px;cursor:pointer}
+.who-e.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.who-go{width:100%;min-height:46px;border:none;border-radius:var(--r);background:var(--ink);
+  color:var(--chalk);font-family:var(--fb);font-size:14px;font-weight:500;cursor:pointer;
+  margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:6px}
+.who-back{width:100%;min-height:44px;border:1px solid var(--border2);border-radius:var(--r);
+  background:none;color:var(--ink2);font-family:var(--fb);font-size:13px;cursor:pointer}
+.who-danger{width:100%;min-height:44px;border:1px solid #d9a5a5;border-radius:var(--r);
+  background:none;color:#a33;font-family:var(--fb);font-size:13px;cursor:pointer;margin-bottom:8px}
+.who-err{font-size:13px;color:#a33;margin-bottom:10px}
+.who-note{font-size:11.5px;line-height:1.5;color:var(--ink3);margin:0 0 12px}
 /* ── PHONE: RECIPE DETAIL ──
    These override the .dp-* rules above, so they have to come after them. When
    they lived up beside the picker block the base rules won every shared
@@ -574,6 +615,10 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
   .fresh-note button::after,.gen-notice button::after,.plan-notice button::after,
   .hidden-note button::after{content:"";position:absolute;top:-10px;bottom:-10px;
     left:-12px;right:-12px}
+  .nav{padding:0 12px}
+  .logo{font-size:17px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .who-btn{margin-left:8px;width:34px;height:34px;font-size:16px}
+  .who-sheet{max-width:none;padding:16px;border-radius:var(--r)}
   .picker-done{position:sticky;bottom:8px;z-index:5}
   .picker-done .cta{min-height:48px;box-shadow:0 4px 14px rgba(28,24,20,.22)}
   .shuffle-btn{min-height:40px;padding:0 15px;font-size:13px}
@@ -615,7 +660,9 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
   <button class="nt on" onclick="showPg('discover')" id="t-discover"><i class="ti ti-compass"></i> Discover</button>
   <button class="nt" onclick="showPg('favorites')" id="t-favorites"><i class="ti ti-star"></i> Starred<span class="fav-badge" id="fav-badge" style="display:none">0</span></button>
   <button class="nt" onclick="showPg('plan')" id="t-plan"><i class="ti ti-basket"></i> Plan<span class="fav-badge" id="plan-badge" style="display:none">0</span></button>
+  <button class="who-btn" id="who-btn" onclick="openWho()" aria-label="Switch person"></button>
 </nav>
+<div class="who-overlay" id="who-overlay" hidden onclick="if(event.target===this)closeWho()"></div>
 
 <!-- DISCOVER -->
 <div class="pg on" id="pg-discover">
@@ -5108,12 +5155,73 @@ let shownIds=[], expandedId=null, activeTab={}, cookStepIdx=0, cookRecipeId=null
 let sel={cuisines:[],diets:[],efforts:[]}, mode=null, started=false;
 // localStorage throws in some contexts (data: URLs, hardened privacy modes, sandboxed
 // frames). Without this guard the whole script dies at load and the app renders nothing.
-const LS=(()=>{
+const RAW_LS=(()=>{
   try{ localStorage.getItem('dw_probe'); return localStorage; }
   catch(e){
     const mem={};
-    return {getItem:k=>(k in mem?mem[k]:null), setItem:(k,v)=>{mem[k]=String(v)}};
+    return {getItem:k=>(k in mem?mem[k]:null), setItem:(k,v)=>{mem[k]=String(v)},
+            removeItem:k=>{delete mem[k]}};
   }
+})();
+
+// ─── WHO IS COOKING ──────────────────────────────────────────────────────────
+// Everything the app remembers is personal: your pantry, what you starred, this
+// week's plan, what you have already cooked. Two people sharing a phone were
+// writing over each other, so every key is filed under whoever is signed in.
+//
+// A profile can carry a PIN. Be clear about what that is: it stops someone
+// tapping into the wrong pantry by accident. It is not protection — the data
+// sits in this browser's storage and anyone who opens the developer tools can
+// read it, and a four-digit PIN is ten thousand guesses whatever we hash it
+// with. It is a door you have to mean to open, not a lock.
+const DW_KEYS=['dw_favs','dw_comments','dw_swaps','dw_steps','dw_pantry',
+  'dw_generated','dw_hidden','dw_seen','dw_cooked','dw_marco','dw_allergy',
+  'dw_plan','dw_serves'];
+let profiles=[], activeProfile=null;
+function saveProfiles(){
+  RAW_LS.setItem('tt_profiles',JSON.stringify(profiles));
+  RAW_LS.setItem('tt_active',String(activeProfile));
+}
+function pkey(k){return activeProfile?'p'+activeProfile+'_'+k:k}
+const LS={
+  getItem:k=>RAW_LS.getItem(pkey(k)),
+  setItem:(k,v)=>RAW_LS.setItem(pkey(k),v)
+};
+// Salted, so a PIN someone reuses elsewhere is not sitting there in the clear.
+// Not a security measure; see above.
+function pinHash(pin,salt){
+  let h=5381;
+  const t=String(salt)+':'+String(pin);
+  for(let i=0;i<t.length;i++) h=((h*33)^t.charCodeAt(i))>>>0;
+  return h.toString(16);
+}
+function newSalt(){return Math.random().toString(36).slice(2,10)}
+function profileById(id){return profiles.find(p=>p.id===id)||null}
+function currentProfile(){return profileById(activeProfile)}
+function pinOk(p,pin){return !p.pin||p.pin.h===pinHash(pin,p.pin.s)}
+function setPin(id,pin){
+  const p=profileById(id); if(!p) return;
+  if(pin==null||pin===''){p.pin=null}
+  else{const s=newSalt();p.pin={s:s,h:pinHash(pin,s)}}
+  saveProfiles();
+}
+// A first run has no profiles and may already have a pantry saved under the
+// bare keys. Adopt it rather than stranding it: whoever has been using the app
+// keeps everything, and never sees the machinery until they add someone.
+(function ensureProfile(){
+  try{profiles=JSON.parse(RAW_LS.getItem('tt_profiles')||'[]')}catch(e){profiles=[]}
+  if(!Array.isArray(profiles)) profiles=[];
+  activeProfile=RAW_LS.getItem('tt_active');
+  if(!profiles.length){
+    profiles=[{id:'1',name:'You',fl:'🍳',pin:null}];
+    activeProfile='1';
+    DW_KEYS.forEach(k=>{
+      const v=RAW_LS.getItem(k);
+      if(v!=null&&RAW_LS.getItem('p1_'+k)==null) RAW_LS.setItem('p1_'+k,v);
+    });
+    saveProfiles();
+  }
+  if(!profileById(activeProfile)){activeProfile=profiles[0].id;saveProfiles()}
 })();
 let favorites=JSON.parse(LS.getItem('dw_favs')||'[]');
 let comments=JSON.parse(LS.getItem('dw_comments')||'{}');
@@ -8157,10 +8265,184 @@ function toggleCookMarco(){
   if(changed)save();
 })();
 
+
+// ─── SWITCHING PERSON ────────────────────────────────────────────────
+const WHO_EMOJI=['🍳','🥕','🍅','🌶','🍋','🍄','🐟','🧀'];
+function loadState(){
+  favorites=JSON.parse(LS.getItem('dw_favs')||'[]');
+  comments=JSON.parse(LS.getItem('dw_comments')||'{}');
+  swaps=JSON.parse(LS.getItem('dw_swaps')||'{}');
+  stepsDone=JSON.parse(LS.getItem('dw_steps')||'{}');
+  pantry=new Set(JSON.parse(LS.getItem('dw_pantry')||'[]'));
+  generated=JSON.parse(LS.getItem('dw_generated')||'[]');
+  hidden=new Set(JSON.parse(LS.getItem('dw_hidden')||'[]'));
+  seen=JSON.parse(LS.getItem('dw_seen')||'{}');
+  cooked=JSON.parse(LS.getItem('dw_cooked')||'{}');
+  allergyMode=JSON.parse(LS.getItem('dw_allergy')||'false');
+  plan=new Set(JSON.parse(LS.getItem('dw_plan')||'[]'));
+  marcoHistory=JSON.parse(LS.getItem('dw_marco')||'[]');
+  serveCount=JSON.parse(LS.getItem('dw_serves')||'{}');
+  ALL_RECIPES=BASE_RECIPES.concat(generated);
+  clearDietCache();
+}
+// Switching person changes every list on screen, so start them back at the
+// picker rather than leaving someone else's results sitting there.
+function applyProfile(id){
+  activeProfile=id;saveProfiles();
+  loadState();
+  sel={cuisines:[],diets:[],efforts:[]};mode=null;started=false;
+  shownIds=[];expandedId=null;pickerOpen=true;searchQuery='';preSearchSel=null;
+  cookRecipeId=null;
+  showPg('discover');
+  renderSearchBar();renderCuisineRow();renderPantryPanel();renderCards();
+  updateFavBadge();updatePlanBadge();renderMarco();renderWhoBtn();
+}
+function switchProfile(id,pin){
+  const p=profileById(id);
+  if(!p) return {ok:false,err:'No such person.'};
+  if(p.id===activeProfile) return {ok:true};
+  if(p.pin&&!pinOk(p,pin)) return {ok:false,err:'That PIN does not match.'};
+  applyProfile(id);
+  return {ok:true};
+}
+function newProfileId(){
+  let id;
+  do{ id=Date.now().toString(36)+Math.random().toString(36).slice(2,6) }
+  while(profileById(id));
+  return id;
+}
+function addProfile(name,fl,pin){
+  name=String(name||'').trim().slice(0,20);
+  if(!name) return {ok:false,err:'Give them a name.'};
+  if(profiles.some(p=>p.name.toLowerCase()===name.toLowerCase()))
+    return {ok:false,err:'Someone already has that name.'};
+  const id=newProfileId();
+  profiles.push({id:id,name:name,fl:fl||WHO_EMOJI[profiles.length%WHO_EMOJI.length],pin:null});
+  saveProfiles();
+  if(pin) setPin(id,pin);
+  return {ok:true,id:id};
+}
+function renameProfile(id,name){
+  name=String(name||'').trim().slice(0,20);
+  const p=profileById(id);
+  if(!p||!name) return {ok:false,err:'Give them a name.'};
+  if(profiles.some(x=>x.id!==id&&x.name.toLowerCase()===name.toLowerCase()))
+    return {ok:false,err:'Someone already has that name.'};
+  p.name=name;saveProfiles();return {ok:true};
+}
+// Removing a person takes their pantry and stars with them. No undo, so the
+// button asks first.
+function removeProfile(id){
+  if(profiles.length<2) return {ok:false,err:'There has to be someone.'};
+  const p=profileById(id); if(!p) return {ok:false,err:'No such person.'};
+  profiles=profiles.filter(x=>x.id!==id);
+  DW_KEYS.forEach(k=>{try{RAW_LS.removeItem('p'+id+'_'+k)}catch(e){}});
+  if(activeProfile===id){applyProfile(profiles[0].id)} else {saveProfiles()}
+  return {ok:true};
+}
+
+let whoView={mode:'list',target:null,err:'',fl:null};
+function openWho(){whoView={mode:'list',target:null,err:'',fl:null};renderWho();
+  const o=document.getElementById('who-overlay'); if(o) o.hidden=false}
+function closeWho(){const o=document.getElementById('who-overlay'); if(o) o.hidden=true}
+function whoGo(m,t){whoView={mode:m,target:t||null,err:'',fl:null};renderWho()}
+function whoErr(e){whoView.err=e;renderWho()}
+function whoVal(id){const e=document.getElementById(id);return e?e.value:''}
+function renderWhoBtn(){
+  const b=document.getElementById('who-btn'); if(!b) return;
+  const p=currentProfile();
+  b.innerHTML=p?'<span class="who-fl">'+p.fl+'</span>':'';
+  b.setAttribute('aria-label','Cooking as '+(p?p.name:'someone')+' — switch person');
+}
+function whoDoSwitch(id){
+  const r=switchProfile(id,whoVal('who-pin'));
+  if(r.ok){closeWho()} else {whoErr(r.err)}
+}
+function whoDoAdd(){
+  const r=addProfile(whoVal('who-name'),whoView.fl,whoVal('who-newpin'));
+  if(!r.ok) return whoErr(r.err);
+  applyProfile(r.id);closeWho();
+}
+function whoPickEmoji(f){whoView.fl=f;renderWho()}
+function whoDoRename(){
+  const r=renameProfile(whoView.target,whoVal('who-rename'));
+  if(!r.ok) return whoErr(r.err);
+  renderWhoBtn();whoGo('list');
+}
+function whoDoPin(){setPin(whoView.target,whoVal('who-setpin'));whoGo('list')}
+function whoDoRemove(){
+  const r=removeProfile(whoView.target);
+  if(!r.ok) return whoErr(r.err);
+  renderWhoBtn();whoGo('list');
+}
+function renderWho(){
+  const el=document.getElementById('who-overlay'); if(!el) return;
+  const err=whoView.err?'<div class="who-err">'+esc(whoView.err)+'</div>':'';
+  const v=whoView.mode;
+  let body;
+  if(v==='pin'){
+    const p=profileById(whoView.target)||{name:'',fl:'',id:''};
+    body='<div class="who-head">'+p.fl+' '+esc(p.name)+'</div>'
+      +'<p class="who-sub">Enter their PIN to switch.</p>'
+      +'<input class="who-in" id="who-pin" type="tel" inputmode="numeric" autocomplete="off" placeholder="PIN">'
+      +err
+      +'<button class="who-go" onclick="whoDoSwitch(\''+p.id+'\')">Unlock</button>'
+      +'<button class="who-back" onclick="whoGo(\'list\')">Back</button>';
+  } else if(v==='add'){
+    const fl=whoView.fl||WHO_EMOJI[profiles.length%WHO_EMOJI.length];
+    body='<div class="who-head">Add someone</div>'
+      +'<input class="who-in" id="who-name" maxlength="20" placeholder="Their name">'
+      +'<div class="who-emoji">'+WHO_EMOJI.map(function(e){
+          return '<button class="who-e'+(e===fl?' on':'')+'" onclick="whoPickEmoji(\''+e+'\')">'+e+'</button>'}).join('')+'</div>'
+      +'<input class="who-in" id="who-newpin" type="tel" inputmode="numeric" autocomplete="off" placeholder="PIN (optional)">'
+      +err
+      +'<button class="who-go" onclick="whoDoAdd()">Create</button>'
+      +'<button class="who-back" onclick="whoGo(\'list\')">Back</button>';
+  } else if(v==='manage'){
+    const p=profileById(whoView.target)||{name:'',fl:'',id:'',pin:null};
+    body='<div class="who-head">'+p.fl+' '+esc(p.name)+'</div>'
+      +'<input class="who-in" id="who-rename" maxlength="20" value="'+escAttr(p.name)+'">'
+      +'<button class="who-go" onclick="whoDoRename()">Save name</button>'
+      +'<input class="who-in" id="who-setpin" type="tel" inputmode="numeric" autocomplete="off" placeholder="'
+      +(p.pin?'New PIN — leave blank to remove':'Set a PIN (optional)')+'">'
+      +'<button class="who-go" onclick="whoDoPin()">'+(p.pin?'Change PIN':'Set PIN')+'</button>'
+      +err
+      +(profiles.length>1
+        ? '<button class="who-danger" onclick="whoConfirmRemove()">Remove '+esc(p.name)+'</button>'
+        : '')
+      +'<button class="who-back" onclick="whoGo(\'list\')">Back</button>';
+  } else {
+    body='<div class="who-head">Who is cooking?</div><div class="who-list">'
+      +profiles.map(function(p){
+        const on=p.id===activeProfile;
+        const act=on?'closeWho()':(p.pin?'whoGo(\'pin\',\''+p.id+'\')':'whoDoSwitch(\''+p.id+'\')');
+        return '<div class="who-row'+(on?' on':'')+'">'
+          +'<button class="who-pick" onclick="'+act+'">'
+          +'<span class="who-fl">'+p.fl+'</span><span class="who-nm">'+esc(p.name)+'</span>'
+          +(p.pin?'<i class="ti ti-lock"></i>':'')
+          +(on?'<span class="who-now">cooking</span>':'')
+          +'</button>'
+          +'<button class="who-cog" onclick="whoGo(\'manage\',\''+p.id+'\')" aria-label="Settings for '+escAttr(p.name)+'"><i class="ti ti-dots"></i></button>'
+          +'</div>'}).join('')
+      +'</div>'+err
+      +'<button class="who-go" onclick="whoGo(\'add\')"><i class="ti ti-plus"></i> Add someone</button>'
+      +'<p class="who-note">Each person gets their own pantry, stars and plan. A PIN stops someone'
+      +' opening the wrong one by accident — it is not a lock, and anyone who knows their way'
+      +' around a browser can read what is stored here.</p>'
+      +'<button class="who-back" onclick="closeWho()">Done</button>';
+  }
+  el.innerHTML='<div class="who-sheet" role="dialog" aria-modal="true">'+body+'</div>';
+}
+function whoConfirmRemove(){
+  const p=profileById(whoView.target); if(!p) return;
+  if(confirm('Remove '+p.name+'? Their pantry, stars and plan go with them.')) whoDoRemove();
+}
+
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 renderCuisineRow();
 renderPantryPanel();
 updateFavBadge();
+renderWhoBtn();
 renderMarco();
 updatePlanBadge();
 renderSearchBar();
