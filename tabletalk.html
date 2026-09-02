@@ -569,6 +569,11 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
   .pantry-mini,.picker-change{min-height:40px;padding:0 15px;font-size:13px}
   .allergy-toggle::after{content:"";position:absolute;top:-13px;bottom:-13px;
     left:-9px;right:-9px}
+  .fresh-note button,.gen-notice button,.plan-notice button,.hidden-note button{
+    position:relative;min-width:24px;min-height:24px}
+  .fresh-note button::after,.gen-notice button::after,.plan-notice button::after,
+  .hidden-note button::after{content:"";position:absolute;top:-10px;bottom:-10px;
+    left:-12px;right:-12px}
   .picker-done{position:sticky;bottom:8px;z-index:5}
   .picker-done .cta{min-height:48px;box-shadow:0 4px 14px rgba(28,24,20,.22)}
   .shuffle-btn{min-height:40px;padding:0 15px;font-size:13px}
