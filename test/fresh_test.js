@@ -25,17 +25,17 @@ const pages=Math.ceil(thaiTotal/5);
 for(let i=0;i<pages-1;i++){ctx.cycleFive();G('shownIds').forEach(id=>seenIds.add(id));}
 eq('cycling covers every Thai recipe',seenIds.size,thaiTotal);
 eq('all of them recorded as seen',Object.keys(G('seen')).length,thaiTotal);
-eq('no unseen left',ctx.unseenIn('Thai'),0);
+eq('no unseen left',ctx.unseenIn(),0);
 
 // --- exhaustion resets rather than silently looping ---
 S('freshNotice',null);
 ctx.cycleFive();
 eq('reset notice raised',G('freshNotice')&&G('freshNotice').type,'reset');
-eq('reset re-seeds the pool',ctx.unseenIn('Thai')>0,true);
+eq('reset re-seeds the pool',ctx.unseenIn()>0,true);
 
 // --- replenish trigger ---
 S('seen',{});S('freshNotice',null);
-ctx.selectCuisine('Thai');
+ctx.setShown(ctx.cycleWithReset());
 eq('no prompt while plenty unseen',ctx.needsReplenish(),false);
 const thai=G('ALL_RECIPES').filter(r=>r.c==='Thai');
 thai.slice(0,thai.length-3).forEach(r=>{G('seen')[r.id]={n:1,last:1}});

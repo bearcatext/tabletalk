@@ -13,7 +13,7 @@ const eq=(n,g,w)=>{const ok=JSON.stringify(g)===JSON.stringify(w);
   console.log((ok?'  PASS  ':'  FAIL  ')+n+(ok?'':`  got=${JSON.stringify(g)} want=${JSON.stringify(w)}`));ok?pass++:fail++};
 const row=()=>stub('cuisine-row').innerHTML;
 
-S('activeCuisine',null);S('pickerOpen',true);ctx.renderCuisineRow();
+S('sel',{cuisines:[],diets:[],efforts:[]});S('mode',null);S('started',false);S('pickerOpen',true);ctx.renderCuisineRow();
 eq('landing shows full grid',/picker-grid/.test(row()),true);
 eq('landing has a section per grouping',(row().match(/picker-section/g)||[]).length,5);
 eq('one card per cuisine, diet, effort, pantry and add-your-own',
@@ -30,10 +30,11 @@ eq('bar shows count',new RegExp(ctx.pool('Thai').length+' recipes').test(row()),
 
 ctx.togglePicker();
 eq('Change reopens grid',/picker-grid/.test(row()),true);
-eq('selection preserved',G('activeCuisine'),'Thai');
+eq('selection preserved',G('sel').cuisines,['Thai']);
 eq('active card marked pressed',row().includes('aria-pressed="true"'),true);
 eq('exactly one card pressed',(row().match(/aria-pressed="true"/g)||[]).length,1);
 
+S('sel',{cuisines:[],diets:[],efforts:[]});S('mode',null);S('started',false);
 eq('cuisine count',ctx.pickerCount('Italian'),ctx.pool('Italian').length+' recipes');
 eq('all-cuisines count',ctx.pickerCount('all'),ctx.pool('all').length+' recipes');
 eq('diet count mentions swaps',/with a swap/.test(ctx.pickerCount('hh')),true);
@@ -68,5 +69,86 @@ eq('every style brace is closed',(function(){
   let d=0;
   for(const ch of css){if(ch==='{')d++;if(ch==='}')d--;if(d<0)return false}
   return d===0;})(),true);
+
+console.log('-- combining filters --');
+const resetSel=()=>{S('sel',{cuisines:[],diets:[],efforts:[]});S('mode',null);S('started',false)};
+const visIn=c=>G('ALL_RECIPES').filter(r=>r.c===c&&!G('hidden').has(r.id)).length;
+const dietOkIn=(r,d)=>{const st=ctx.dietStatus(r,d);return st.ok||st.fixable};
+
+resetSel();
+ctx.selectCuisine('Mexican');
+eq('one tap from a clean picker goes to the recipes',G('pickerOpen'),false);
+ctx.togglePicker();
+ctx.selectCuisine('df');
+eq('a second filter keeps the first',G('sel').cuisines,['Mexican']);
+eq('and adds its own',G('sel').diets,['df']);
+eq('the picker stays open so a third is one tap',G('pickerOpen'),true);
+
+const mexAll=visIn('Mexican'), both=ctx.selPool();
+eq('combining narrows rather than replaces',both.length<mexAll,true);
+eq('and still leaves something to cook',both.length>0,true);
+eq('every result is Mexican',both.every(r=>r.c==='Mexican'),true);
+eq('every result is dairy-free or one swap away',both.every(r=>dietOkIn(r,'df')),true);
+
+// Regional is "either" — nothing is both Mexican and Thai, so "both" would
+// always be empty.
+resetSel();
+ctx.selectCuisine('Mexican');ctx.selectCuisine('Thai');
+eq('two cuisines mean either',G('sel').cuisines,['Mexican','Thai']);
+eq('the pool is their union',ctx.selPool().length,visIn('Mexican')+visIn('Thai'));
+eq('and holds nothing outside the two',
+  ctx.selPool().every(r=>r.c==='Mexican'||r.c==='Thai'),true);
+
+// Dietary is "both" — returning either would put food on screen that someone
+// who tapped both cannot eat.
+resetSel();
+ctx.selectCuisine('vgn');
+const vgnOnly=ctx.selPool().length;
+ctx.selectCuisine('gf');
+eq('two diets narrow rather than widen',ctx.selPool().length<vgnOnly,true);
+eq('every result satisfies both',
+  ctx.selPool().every(r=>dietOkIn(r,'vgn')&&dietOkIn(r,'gf')),true);
+
+// effort combines with the rest
+resetSel();
+ctx.selectCuisine('Thai');ctx.selectCuisine('quick');
+eq('effort narrows a cuisine',
+  ctx.selPool().every(r=>r.c==='Thai'&&r.mins<=G('QUICK_MINS')),true);
+
+resetSel();
+ctx.selectCuisine('Italian');ctx.selectCuisine('Italian');
+eq('tapping a lit pill clears it',G('sel').cuisines,[]);
+
+resetSel();
+ctx.selectCuisine('Italian');ctx.selectCuisine('all');
+eq('all cuisines clears the group',G('sel').cuisines,[]);
+eq('but the app knows you have started',ctx.selAny(),true);
+
+// search, pantry and your own bring their own ordering, so they take over
+resetSel();
+ctx.selectCuisine('Italian');ctx.selectCuisine('pantry');
+eq('a mode takes over',G('mode'),'pantry');
+eq('and the pills stop reading as lit',ctx.selHas('Italian'),false);
+
+// counts answer "what would I get if I tapped this"
+resetSel();
+ctx.selectCuisine('Mexican');
+eq('a count reflects what is already chosen',ctx.countWith('df'),
+  ctx.selPool({cuisines:['Mexican'],diets:['df'],efforts:[]}).length);
+eq('a lit pill reports the current total',ctx.countWith('Mexican'),ctx.selPool().length);
+eq('a dead end says so rather than showing a number',(()=>{
+  resetSel();
+  const combo=G('DIET_CATS').map(c=>c.id);
+  combo.forEach(d=>ctx.selectCuisine(d));
+  return ctx.selPool().length===0?/nothing with these filters/.test(ctx.pickerCount('Italian')):true;
+})(),true);
+
+resetSel();
+ctx.selectCuisine('Mexican');ctx.selectCuisine('df');
+eq('the label names both',ctx.selLabel(),'Mexican + Dairy-free');
+resetSel();
+eq('nothing selected reads as all cuisines',ctx.selLabel(),'All cuisines');
+resetSel();
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exitCode=fail?1:0;

@@ -46,7 +46,7 @@ eq('proteinless dishes sort to the back',rk(order[order.length-1]),9);
 eq('first heart-healthy recipe is fish',order[0],'fish');
 
 // ── the swap hint ──
-S('activeCuisine','df');
+S('sel',{cuisines:[],diets:['df'],efforts:[]});S('mode',null);S('started',true);
 const fixable=R.find(r=>{const s=ctx.dietStatus(r,'df');return s.fixable&&s.swapsNeeded===1});
 const hint=ctx.dietHintHtml(fixable);
 const blocker=fixable.ing.find((ing,i)=>ctx.violates('df',ing.n));
@@ -68,7 +68,7 @@ ctx.applySwap(fixable.id,idx,null);
 const blocked=R.find(r=>{const s=ctx.dietStatus(r,'df');return !s.ok&&!s.fixable});
 eq('unfixable recipe says why',/diet-hint no/.test(ctx.dietHintHtml(blocked)),true);
 // no hint outside a diet category
-S('activeCuisine','Italian');
+S('sel',{cuisines:['Italian'],diets:[],efforts:[]});S('mode',null);S('started',true);
 eq('no hint when browsing a cuisine',ctx.dietHintHtml(fixable),'');
 
 console.log('-- names that read as animal but are not --');

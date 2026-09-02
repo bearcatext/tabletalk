@@ -71,6 +71,8 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
 .pcard.pantry.on{box-shadow:inset 0 0 0 1px var(--green)}
 .pcard.pantry .pcard-e{font-size:19px}
 /* Compact bar */
+.picker-done{margin-top:4px}
+.picker-done .cta{width:100%;justify-content:center;padding:13px 16px;font-size:14px}
 .picker-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:11px 14px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);margin-bottom:18px}
 .picker-bar-cur{display:flex;align-items:center;gap:7px;font-family:var(--ff);font-size:15px;font-weight:600;color:var(--ink)}
 .picker-bar-n{font-size:11px;color:var(--ink3);font-family:var(--fb);font-weight:400}
@@ -565,6 +567,8 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
   .pantry-chips{gap:8px}
   .pantry-chip .chip-x{font-size:15px}
   .pantry-mini,.picker-change{min-height:40px;padding:0 15px;font-size:13px}
+  .picker-done{position:sticky;bottom:8px;z-index:5}
+  .picker-done .cta{min-height:48px;box-shadow:0 4px 14px rgba(28,24,20,.22)}
   .shuffle-btn{min-height:40px;padding:0 15px;font-size:13px}
   .pantry-add input,.pantry-add button{min-height:44px}
   .pantry-add button{padding:0 18px;font-size:14px}
@@ -5087,7 +5091,14 @@ const CUISINES=[
 ];
 
 // ─── STATE ───────────────────────────────────────────────────────────────────
-let activeCuisine=null, shownIds=[], expandedId=null, activeTab={}, cookStepIdx=0, cookRecipeId=null;
+let shownIds=[], expandedId=null, activeTab={}, cookStepIdx=0, cookRecipeId=null;
+// Filters are facets, not one category. Within Regional it is "either" —
+// nothing is both Mexican and Thai, so "both" would always be empty. Within
+// Dietary and Effort it is "both": someone who taps vegan and gluten-free
+// needs a recipe that is both, and "either" would put food they cannot eat on
+// the screen. Search, the pantry and your own recipes bring their own ordering,
+// so they are exclusive modes that replace the facets rather than narrowing.
+let sel={cuisines:[],diets:[],efforts:[]}, mode=null, started=false;
 // localStorage throws in some contexts (data: URLs, hardened privacy modes, sandboxed
 // frames). Without this guard the whole script dies at load and the app renders nothing.
 const LS=(()=>{
@@ -5434,7 +5445,7 @@ function dietPool(cat){
 function toggleAllergyMode(){
   allergyMode=!allergyMode;
   clearDietCache();save();
-  if(isDietCat(activeCuisine)) setShown(pickPage(pool(activeCuisine),[]));
+  if(sel.diets.length) setShown(pickPage(selPool(),[]));
   renderCuisineRow();renderCards();
 }
 function allergyToggleHtml(cat){
@@ -5463,8 +5474,9 @@ function dietNote(cat){
 }
 
 function dietBadgeHtml(r){
-  if(!isDietCat(activeCuisine)) return '';
-  const c=dietCat(activeCuisine), s=dietStatus(r,activeCuisine);
+  const cat=sel.diets[0];
+  if(!cat) return '';
+  const c=dietCat(cat), s=dietStatus(r,cat);
   if(s.ok) return `<span class="diet-badge"><i class="ti ti-circle-check"></i>${c.short}</span>`;
   if(s.fixable) return `<span class="diet-badge swap"><i class="ti ti-replace"></i>${c.short} with ${s.swapsNeeded} swap${s.swapsNeeded===1?'':'s'}</span>`;
   return '';
@@ -5573,7 +5585,7 @@ function matchBadgeHtml(r){
 }
 
 function refreshPantryViews(){
-  if(activeCuisine==='pantry'){pantryPage=0;setShown(pantryRanked().slice(0,5));}
+  if(mode==='pantry'){pantryPage=0;setShown(pantryRanked().slice(0,5));}
   renderCuisineRow();renderPantryPanel();renderCards();
 }
 function togglePantryItem(name){
@@ -5664,7 +5676,7 @@ function setShown(list,mark){
 }
 
 const isUnseen=r=>!seen[r.id];
-function unseenIn(cat){return pool(cat).filter(isUnseen).length}
+function unseenIn(){return selPool().filter(isUnseen).length}
 
 // Unseen first; then least-recently-seen, so nothing sits at the back forever.
 // Shuffled before sorting so ties break randomly rather than by recipe id.
@@ -5683,21 +5695,22 @@ function pickPage(p,exclude){
 
 // When a category is exhausted, clear its marks and say so rather than
 // silently looping. Cooked recipes keep their history — that's a real signal.
-function resetSeenFor(cat){
-  pool(cat).forEach(r=>{delete seen[r.id]});
+function resetSeenFor(){
+  selPool().forEach(r=>{delete seen[r.id]});
   save();
 }
-function cycleWithReset(cat){
-  if(unseenIn(cat)===0&&pool(cat).length>PAGE){
-    resetSeenFor(cat);
-    freshNotice={type:'reset',n:pool(cat).length};
+function cycleWithReset(){
+  const p=selPool();
+  if(unseenIn()===0&&p.length>PAGE){
+    resetSeenFor();
+    freshNotice={type:'reset',n:p.length};
   }
-  return pickPage(pool(cat),shownIds);
+  return pickPage(p,shownIds);
 }
 
 // Below one page of unseen recipes, offer to write more of this cuisine.
 function needsReplenish(){
-  return canGenerate()&&unseenIn(activeCuisine)<PAGE&&!generating;
+  return canGenerate()&&unseenIn()<PAGE&&!generating;
 }
 function freshNoticeHtml(){
   const parts=[];
@@ -5707,10 +5720,10 @@ function freshNoticeHtml(){
       <button onclick="dismissFreshNotice()" aria-label="Dismiss">×</button></div>`);
   }
   if(needsReplenish()){
-    const left=unseenIn(activeCuisine);
-    const hid=pool(activeCuisine).length;
+    const left=unseenIn();
+    const hid=selPool().length;
     parts.push(`<div class="fresh-note replenish">
-      <i class="ti ti-sparkles"></i>${left?`Only ${left} unseen ${activeCuisine} recipe${left===1?'':'s'} left`:`You've worked through all ${hid} ${activeCuisine} recipes`} —
+      <i class="ti ti-sparkles"></i>${left?`Only ${left} unseen ${selLabel()} recipe${left===1?'':'s'} left`:`You've worked through all ${hid} ${selLabel()} recipes`} —
       <button class="fresh-cta" onclick="generateRecipes()">write some new ones</button></div>`);
   }
   return parts.join('');
@@ -5796,7 +5809,7 @@ function normaliseGenerated(o,id){
 function generatePrompt(cuisine,brief){
   const existing=ALL_RECIPES.filter(r=>r.c===cuisine).map(r=>r.t);
   const pantryList=pantry.size?[...pantry].join(', '):null;
-  const activeDiet=isDietCat(activeCuisine)?dietCat(activeCuisine):null;
+  const activeDiet=sel.diets.length===1?dietCat(sel.diets[0]):null;
   let ask=brief
     ? `Write 1 new ${cuisine} recipe for Tabletalk: ${brief}`
     : `Write ${MAX_GEN_PER_CALL} new ${cuisine} recipes for Tabletalk.`;
@@ -5818,7 +5831,7 @@ const GENERATE_SYSTEM=`You write recipes for Tabletalk, a home-cooking app. Hous
 // Generation is offered for a specific cuisine — "all cuisines", a diet
 // category and the pantry have no single cuisine to write for.
 function canGenerate(){
-  return allCuisines().some(c=>c.id===activeCuisine)&&activeCuisine!=='all';
+  return !mode&&!!soleCuisine();
 }
 function dismissGenNotice(){genNotice=null;renderCards()}
 function genNoticeHtml(){
@@ -5843,9 +5856,7 @@ let generating=false;
 async function generateRecipes(opts){
   if(generating) return;
   opts=opts||{};
-  const cuisine=opts.cuisine||(allCuisines().some(c=>c.id===activeCuisine)&&activeCuisine!=='all'
-    ? activeCuisine
-    : (ALL_RECIPES.find(r=>r.id===shownIds[0])||{}).c);
+  const cuisine=opts.cuisine||soleCuisine()||(ALL_RECIPES.find(r=>r.id===shownIds[0])||{}).c;
   if(!cuisine) return;
   generating=true;renderCards();
   try{
@@ -5927,27 +5938,23 @@ function pickerCount(id){
   if(id==='search'){const n=pool('search').length;return `${n} match${n===1?'':'es'}`}
   if(id==='mine'){const n=ownRecipes().length;return `${n} recipe${n===1?'':'s'}`}
   if(id==='pantry'){if(!pantry.size)return 'add your ingredients';const n=pool('pantry').length;return n?`${n} within reach`:'nothing close yet'}
-  if(isEffortCat(id)){const n=pool(id).length;return `${n} recipe${n===1?'':'s'}`}
-  if(isDietCat(id)){
+  if(isDietCat(id)&&selEmpty()){
     const ok=ALL_RECIPES.filter(r=>dietStatus(r,id).ok).length;
     const extra=pool(id).length-ok;
     return extra?`${ok} recipes · +${extra} with a swap`:`${ok} recipe${ok===1?'':'s'}`;
   }
-  const n=pool(id).length;
+  const n=countWith(id);
+  if(!n) return 'nothing with these filters';
   return `${n} recipe${n===1?'':'s'}`;
 }
 
 function currentPick(){
-  if(activeCuisine==='search') return {fl:'🔍',label:searchQuery?'“'+searchQuery+'”':'Search'};
-  if(activeCuisine==='mine') return {fl:'📒',label:'My recipes'};
-  if(activeCuisine==='pantry') return {fl:'🧺',label:'Use my pantry'};
-  if(isEffortCat(activeCuisine)) return effortCat(activeCuisine);
-  if(isDietCat(activeCuisine)) return dietCat(activeCuisine);
-  return allCuisines().find(c=>c.id===activeCuisine)||null;
+  return selAny()?{fl:selFlag(),label:selLabel()}:null;
 }
 
 function pickerCard(id,fl,label,cls){
-  return `<button class="pcard ${cls||''} ${activeCuisine===id?'on':''}" onclick="selectCuisine('${id}')" aria-pressed="${activeCuisine===id}">
+  const on=selHas(id);
+  return `<button class="pcard ${cls||''} ${on?'on':''}" onclick="selectCuisine('${id}')" aria-pressed="${on}">
       <span class="pcard-e">${fl}</span>
       <span class="pcard-t">${label}</span>
       <span class="pcard-n">${pickerCount(id)}</span>
@@ -5963,7 +5970,7 @@ function renderCuisineRow(){
     el.className='';
     el.innerHTML=`<div class="picker-bar">
       <span class="picker-bar-cur"><span>${cur.fl}</span>${cur.label}
-        <span class="picker-bar-n">${pickerCount(activeCuisine)}</span></span>
+        <span class="picker-bar-n">${selPool().length} recipes</span></span>
       <button class="picker-change" onclick="togglePicker()"><i class="ti ti-category"></i> Change</button>
     </div>`;
     return;
@@ -5996,33 +6003,55 @@ function renderCuisineRow(){
     <div class="picker-section pantry-section">
       <div class="picker-label">Your pantry</div>
       <div class="picker-grid">${pickerCard('pantry','🧺','Use my pantry','pantry')}</div>
-    </div>`;
+    </div>
+    ${selAny()?`<div class="picker-done"><button class="cta on" onclick="togglePicker()">
+      ${(()=>{const n=selPool().length;return n?`Show ${n} recipe${n===1?'':'s'}`:'No recipes match — remove a filter'})()}
+    </button></div>`:''}`;
 }
 
+// Tapping a pill toggles it. One tap from a clean picker goes straight to the
+// recipes, which is the common case; once something is selected the picker
+// stays open so adding a second filter is one tap rather than three.
 function selectCuisine(id){
-  activeCuisine=id;expandedId=null;openSwap={};pickerOpen=false;
-  if(id==='search'){
+  const wasEmpty=!selAny();
+  started=true;
+  expandedId=null;openSwap={};
+  if(MODES.indexOf(id)>=0){
+    mode=id;pickerOpen=false;
+    if(id==='search'){
+      pantryOpen=false;renderPantryPanel();
+      setShown(searchResults().slice(searchPage*SEARCH_MAX,(searchPage+1)*SEARCH_MAX),false);
+      renderCuisineRow();renderCards();
+      return;
+    }
+    if(id==='pantry'){
+      pantryPage=0;
+      if(!pantry.size) pantryOpen=true;   // nothing to rank yet — open the picker
+      setShown(pantryRanked().slice(0,5));
+      renderCuisineRow();renderPantryPanel();renderCards();
+      return;
+    }
     pantryOpen=false;renderPantryPanel();
-    setShown(searchResults().slice(searchPage*SEARCH_MAX,(searchPage+1)*SEARCH_MAX),false);
+    setShown(pickPage(selPool(),shownIds));
     renderCuisineRow();renderCards();
     return;
   }
-  if(id==='pantry'){
-    pantryPage=0;
-    if(!pantry.size) pantryOpen=true;   // nothing to rank yet — open the picker
-    setShown(pantryRanked().slice(0,5));
-    renderCuisineRow();renderPantryPanel();renderCards();
-    return;
+  mode=null;pantryOpen=false;renderPantryPanel();
+  if(id==='all'){
+    sel.cuisines=[];                     // "all cuisines" clears the group
+  } else {
+    const g=selGroup(id), i=sel[g].indexOf(id);
+    if(i<0) sel[g].push(id); else sel[g].splice(i,1);
   }
-  pantryOpen=false;renderPantryPanel();
+  pickerOpen=!wasEmpty;
   // pickPage does the rotation: unseen first, then least-recently-seen, so a
-  // re-clicked cuisine still moves on.
-  setShown(pickPage(pool(id),shownIds));
+  // re-tapped filter still moves on.
+  setShown(cycleWithReset());
   renderCuisineRow();renderCards();
 }
 
 function cycleFive(){
-  if(activeCuisine==='search'){
+  if(mode==='search'){
     const m=searchResults();
     const pages=Math.max(1,Math.ceil(m.length/SEARCH_MAX));
     searchPage=(searchPage+1)%pages;
@@ -6032,7 +6061,7 @@ function cycleFive(){
   }
   // Pantry mode pages through the ranked list in order rather than reshuffling,
   // so the best matches stay first and every recipe is reachable.
-  if(activeCuisine==='pantry'){
+  if(mode==='pantry'){
     const ranked=pantryRanked();
     const pages=Math.max(1,Math.ceil(ranked.length/5));
     pantryPage=(pantryPage+1)%pages;
@@ -6042,7 +6071,7 @@ function cycleFive(){
   }
   // cycleWithReset wraps around on its own and reports when a category is
   // exhausted rather than silently looping.
-  setShown(cycleWithReset(activeCuisine));
+  setShown(cycleWithReset());
   expandedId=null;openSwap={};renderCards();
 }
 
@@ -6156,16 +6185,84 @@ const EFFORT_TEST={
   easy:r=>isEasy(r),
   ahead:r=>hasAhead(r),
 };
+// quickest first for quick, fewest ingredients for easy, least left to do on
+// the night for prep ahead — each sorted by the thing it is actually about
+function sortForEffort(list,cat){
+  const out=list.slice();
+  if(cat==='quick') out.sort((a,b)=>a.mins-b.mins);
+  else if(cat==='easy') out.sort((a,b)=>a.ing.length-b.ing.length||a.mins-b.mins);
+  else if(cat==='ahead') out.sort((a,b)=>nightMins(a)-nightMins(b));
+  return out;
+}
 function effortPool(cat){
   const test=EFFORT_TEST[cat];
   if(!test) return [];
-  // quickest first for quick, fewest ingredients for easy, least left to do on
-  // the night for prep ahead — each sorted by the thing it is actually about
-  const out=ALL_RECIPES.filter(test);
-  if(cat==='quick') out.sort((a,b)=>a.mins-b.mins);
-  else if(cat==='easy') out.sort((a,b)=>a.ing.length-b.ing.length||a.mins-b.mins);
-  else out.sort((a,b)=>nightMins(a)-nightMins(b));
+  return sortForEffort(ALL_RECIPES.filter(test),cat);
+}
+
+// ─── THE SELECTION ───────────────────────────────────────────────────────────
+const MODES=['search','pantry','mine'];
+const selGroup=id=>isDietCat(id)?'diets':isEffortCat(id)?'efforts':'cuisines';
+function selEmpty(){return !(sel.cuisines.length||sel.diets.length||sel.efforts.length)}
+function selAny(){return !!mode||started}
+function selHas(id){
+  if(mode) return mode===id;
+  if(id==='all') return !sel.cuisines.length;
+  return sel[selGroup(id)].indexOf(id)>=0;
+}
+function soleCuisine(){return sel.cuisines.length===1?sel.cuisines[0]:null}
+// a diet category has always included the recipes that are one swap away
+function dietMember(r,c){const st=dietStatus(r,c);return st.ok||st.fixable}
+function matchesSel(r,x){
+  if(x.cuisines.length&&x.cuisines.indexOf(r.c)<0) return false;
+  if(!x.diets.every(d=>dietMember(r,d))) return false;
+  if(!x.efforts.every(e=>EFFORT_TEST[e](r))) return false;
+  return true;
+}
+function swapsFor(r,x){
+  return x.diets.reduce((n,d)=>{const st=dietStatus(r,d);return n+(st.ok?0:(st.swapsNeeded||1))},0);
+}
+function selPool(x){
+  const vis=r=>!hidden.has(r.id);
+  if(!x){
+    if(mode==='search') return searchResults().filter(vis);
+    if(mode==='mine') return ownRecipes().filter(vis);
+    if(mode==='pantry') return pantryRanked().filter(vis);
+    x=sel;
+  }
+  let out=ALL_RECIPES.filter(r=>vis(r)&&matchesSel(r,x));
+  // each group keeps its own ordering: a diet puts fully qualifying before the
+  // ones a swap away, effort sorts by the thing it is about
+  if(x.diets.length) out.sort((a,b)=>swapsFor(a,x)-swapsFor(b,x));
+  else if(x.efforts.length) out=sortForEffort(out,x.efforts[0]);
   return out;
+}
+// what you would get if you added this one, so a pill reading zero is a dead
+// end you can see before you tap it
+function countWith(id){
+  if(MODES.indexOf(id)>=0) return pool(id).length;
+  const next={cuisines:sel.cuisines.slice(),diets:sel.diets.slice(),efforts:sel.efforts.slice()};
+  if(id==='all') next.cuisines=[];
+  else if(!selHas(id)) next[selGroup(id)]=next[selGroup(id)].concat([id]);
+  return selPool(next).length;
+}
+function selLabel(){
+  if(mode==='search') return searchQuery?'“'+searchQuery+'”':'Search';
+  if(mode==='mine') return 'My recipes';
+  if(mode==='pantry') return 'Use my pantry';
+  const names=sel.cuisines.slice()
+    .concat(sel.diets.map(d=>dietCat(d).label))
+    .concat(sel.efforts.map(e=>effortCat(e).label));
+  return names.length?names.join(' + '):'All cuisines';
+}
+function selFlag(){
+  if(mode==='search') return '🔍';
+  if(mode==='mine') return '📒';
+  if(mode==='pantry') return '🧺';
+  if(sel.cuisines.length===1){const c=allCuisines().find(x=>x.id===sel.cuisines[0]);if(c) return c.fl}
+  if(!sel.cuisines.length&&sel.diets.length===1) return dietCat(sel.diets[0]).fl;
+  if(!sel.cuisines.length&&!sel.diets.length&&sel.efforts.length===1) return effortCat(sel.efforts[0]).fl;
+  return '🍽';
 }
 
 function recipeCardHtml(r,opts){
@@ -6213,25 +6310,26 @@ function recipeCardHtml(r,opts){
 
 function renderCards(){
   const area=document.getElementById('results-area');
-  if(!activeCuisine){area.innerHTML='';return}
-  const isPantry=activeCuisine==='pantry';
-  const isSearch=activeCuisine==='search';
-  const isDiet=isDietCat(activeCuisine);
+  if(!selAny()){area.innerHTML='';return}
+  const isPantry=mode==='pantry';
+  const isSearch=mode==='search';
+  const diets=sel.diets;
   const cards=shownIds.map(id=>ALL_RECIPES.find(r=>r.id===id)).filter(Boolean);
-  const pl=pool(activeCuisine).length;
+  const pl=selPool().length;
   let label;
   if(isPantry){
     label=pantry.size
       ? `${pl} recipe${pl===1?'':'s'} you could cook · missing ${PANTRY_MAX_MISSING} or fewer`
       : 'Add pantry items to rank recipes';
-  } else if(isDiet){
-    const c=dietCat(activeCuisine);
-    const exact=ALL_RECIPES.filter(r=>dietStatus(r,activeCuisine).ok).length;
-    label=`${c.label} · ${exact} recipes, ${pl-exact} more with a swap`;
   } else if(isSearch){
     label=pl?`${pl} match${pl===1?'':'es'} for “${searchQuery}”`:`Nothing matches “${searchQuery}”`;
+  } else if(diets.length){
+    const exact=selPool().filter(r=>diets.every(d=>dietStatus(r,d).ok)).length;
+    label=`${selLabel()} · ${exact} recipe${exact===1?'':'s'}, ${pl-exact} more with a swap`;
+  } else if(!pl){
+    label=`Nothing matches ${selLabel()}`;
   } else {
-    label=activeCuisine==='all'?'5 recipes · all cuisines':activeCuisine+' · 5 recipes';
+    label=`${selLabel()} · ${pl} recipe${pl===1?'':'s'}`;
   }
   let h=`<div class="results-bar">
     <span class="results-label">${label}</span>
@@ -6240,7 +6338,7 @@ function renderCards(){
     ${pl>(isSearch?SEARCH_MAX:5)?`<button class="shuffle-btn" onclick="cycleFive()"><i class="ti ti-refresh"></i> ${isSearch?'More matches':'5 more options'}</button>`:''}
     ${canGenerate()?`<button class="shuffle-btn" onclick="generateRecipes()" ${generating?'disabled':''}><i class="ti ti-sparkles"></i> ${generating?'Writing…':'New recipes'}</button>`:''}
     </span>
-  </div>${isDiet?`<div class="diet-note">${dietNote(activeCuisine)}</div>${allergyToggleHtml(activeCuisine)}`:''}${genNoticeHtml()}${freshNoticeHtml()}${hiddenNoticeHtml()}<div class="cards-grid">`;
+  </div>${diets.map(d=>`<div class="diet-note">${dietNote(d)}</div>`).join('')}${diets.length?allergyToggleHtml(diets[0]):''}${genNoticeHtml()}${freshNoticeHtml()}${hiddenNoticeHtml()}<div class="cards-grid">`;
   cards.forEach((r,i)=>{
     h+=recipeCardHtml(r,{delay:i*.05,selected:expandedId===r.id});
     if(expandedId===r.id) h+=detailPanelHtml(r);
@@ -6323,9 +6421,10 @@ function detailPanelHtml(r){
 // A card can say "dairy-free with 1 swap" and then leave you hunting for
 // which ingredient it meant. Name it, and offer the swap in one click.
 function dietHintHtml(r){
-  if(!isDietCat(activeCuisine)) return '';
-  const c=dietCat(activeCuisine), s=dietStatus(r,activeCuisine);
-  const risky=riskyIngredients(r,activeCuisine);
+  const cat=sel.diets[0];
+  if(!cat) return '';
+  const c=dietCat(cat), s=dietStatus(r,cat);
+  const risky=riskyIngredients(r,cat);
   const warn=(!allergyMode&&risky.length)
     ? `<div class="diet-hint warn"><i class="ti ti-alert-triangle"></i>Check the label on <b>${risky.join('</b>, <b>')}</b> — some brands contain ${c.short.replace(/-free$/,'')}.</div>`
     : '';
@@ -6333,8 +6432,8 @@ function dietHintHtml(r){
   if(!s.fixable) return warn+`<div class="diet-hint no"><i class="ti ti-circle-x"></i>Not ${c.short}: ${s.blockers.join(', ')}.</div>`;
   const rows=[];
   r.ing.forEach((ing,i)=>{
-    if(!violates(activeCuisine,getIngName(r.id,i))) return;
-    const opt=(ing.swaps||[]).findIndex(sw=>!violates(activeCuisine,sw.n));
+    if(!violates(cat,getIngName(r.id,i))) return;
+    const opt=(ing.swaps||[]).findIndex(sw=>!violates(cat,sw.n));
     if(opt<0) return;
     const sw=ing.swaps[opt];
     rows.push(`<div class="diet-hint-row"><span><b>${ing.n}</b> → ${sw.n} <em>${withUS(sw.amt)}</em></span>
@@ -6607,7 +6706,7 @@ function jumpToRecipe(id){
   const r=ALL_RECIPES.find(x=>x.id===id);
   if(!r)return;
   showPg('discover');
-  activeCuisine=r.c;
+  mode=null;sel={cuisines:[r.c],diets:[],efforts:[]};
   const others=shuffle(ALL_RECIPES.filter(x=>x.id!==id&&x.c===r.c)).slice(0,4).map(x=>x.id);
   setShown([id,...others].slice(0,5));
   expandedId=id;
@@ -6623,7 +6722,7 @@ function jumpToRecipe(id){
 // the detail panel all work unchanged.
 const SEARCH_MAX=24;
 const QUICK_MINS=25;
-let searchQuery='', preSearchCuisine=null, searchPage=0;
+let searchQuery='', preSearchSel=null, searchPage=0;
 
 // Some things you would search for are not words in the recipe, they are
 // properties of it — "vegan curry" and "quick chicken" both have to work. Diet
@@ -6721,12 +6820,14 @@ function runSearch(v){
   const w=document.getElementById('search-wrap');
   if(w) w.classList.toggle('has-q',!!searchQuery);
   if(!searchQuery){
-    const back=preSearchCuisine||'all';
-    preSearchCuisine=null;
-    selectCuisine(back);
+    const back=preSearchSel;
+    preSearchSel=null;
+    mode=back?back.mode:null;
+    sel=back?back.sel:{cuisines:[],diets:[],efforts:[]};
+    if(mode) selectCuisine(mode); else {pickerOpen=false;setShown(cycleWithReset());renderCuisineRow();renderCards();}
     return;
   }
-  if(activeCuisine!=='search') preSearchCuisine=activeCuisine;
+  if(mode!=='search') preSearchSel={mode:mode,sel:{cuisines:sel.cuisines.slice(),diets:sel.diets.slice(),efforts:sel.efforts.slice()}};
   searchPage=0;
   selectCuisine('search');
 }

@@ -93,12 +93,13 @@ eq('diet filter respects hidden',(function(){
   const gone=!sm('vegan').some(r=>r.id===v.id);G('hidden').delete(v.id);return gone})(),true);
 
 console.log('-- wiring --');
-S('searchQuery','');S('preSearchCuisine',null);
+S('searchQuery','');S('preSearchSel',null);
+S('sel',{cuisines:[],diets:[],efforts:[]});S('mode',null);S('started',false);
 ctx.selectCuisine('Italian');
-eq('starts on a cuisine',G('activeCuisine'),'Italian');
+eq('starts on a cuisine',G('sel').cuisines,['Italian']);
 ctx.runSearch('chicken');
-eq('switches to search',G('activeCuisine'),'search');
-eq('remembers where you were',G('preSearchCuisine'),'Italian');
+eq('switches to search',G('mode'),'search');
+eq('remembers where you were',G('preSearchSel').sel.cuisines,['Italian']);
 ctx.runSearch('  chicken  ');
 eq('query stored trimmed',G('searchQuery'),'chicken');
 eq('shows matches, capped',G('shownIds').length,Math.min(sm('chicken').length,G('SEARCH_MAX')));
@@ -125,13 +126,14 @@ eq('second page differs from first',JSON.stringify(p1)===JSON.stringify(p2),fals
 eq('page index advanced',G('searchPage'),1);
 
 console.log('-- clearing --');
-S('preSearchCuisine',null);
+S('preSearchSel',null);
+S('sel',{cuisines:[],diets:[],efforts:[]});
 ctx.selectCuisine('Italian');
 ctx.runSearch('chicken');
 ctx.runSearch('');
-eq('clearing returns to previous cuisine',G('activeCuisine'),'Italian');
+eq('clearing returns to previous cuisine',G('sel').cuisines,['Italian']);
 eq('query emptied',G('searchQuery'),'');
-eq('memory released',G('preSearchCuisine'),null);
+eq('memory released',G('preSearchSel'),null);
 
 console.log('-- rendering --');
 ctx.renderSearchBar();

@@ -36,7 +36,7 @@ eq('stock cube is a gluten risk',ctx.mayContain('gf','Chicken stock'),true);
 eq('preference mode ignores uncertainty',ctx.violates('df','Panko breadcrumbs'),false);
 const risky=R.find(r=>ctx.dietStatus(r,'df').ok&&ctx.riskyIngredients(r,'df').length);
 eq('a dairy-free recipe carries a label warning',!!risky,true);
-S('activeCuisine','df');
+S('sel',{cuisines:[],diets:['df'],efforts:[]});S('mode',null);S('started',true);
 eq('warning names the ingredient',ctx.dietHintHtml(risky).includes(ctx.riskyIngredients(risky,'df')[0]),true);
 eq('warning is styled as a caution',/diet-hint warn/.test(ctx.dietHintHtml(risky)),true);
 

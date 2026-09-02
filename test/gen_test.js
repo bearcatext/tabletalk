@@ -73,10 +73,10 @@ eq('catalogue back to base',G('ALL_RECIPES').length,base);
 eq('deletion persisted',JSON.parse(store['dw_generated']).length,0);
 
 // generate button availability
-S('activeCuisine','Italian');eq('generate offered for a cuisine',ctx.canGenerate(),true);
-S('activeCuisine','all');eq('not offered for all-cuisines',ctx.canGenerate(),false);
-S('activeCuisine','hh');eq('not offered for a diet category',ctx.canGenerate(),false);
-S('activeCuisine','pantry');eq('not offered for pantry',ctx.canGenerate(),false);
+S('sel',{cuisines:['Italian'],diets:[],efforts:[]});S('mode',null);S('started',true);eq('generate offered for one cuisine',ctx.canGenerate(),true);
+S('sel',{cuisines:[],diets:[],efforts:[]});S('mode',null);S('started',false);S('started',true);eq('not offered for all-cuisines',ctx.canGenerate(),false);
+S('sel',{cuisines:[],diets:['hh'],efforts:[]});S('mode',null);S('started',true);eq('not offered for a diet category',ctx.canGenerate(),false);
+S('mode','pantry');eq('not offered for pantry',ctx.canGenerate(),false);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exitCode=fail?1:0;

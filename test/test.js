@@ -52,7 +52,7 @@ console.log('    top 5:', ranked.slice(0,5).map(x=>{const q=ctx.pantryMatch(x);r
 eq('badge renders', /match-badge/.test(ctx.matchBadgeHtml(ranked[0])), true);
 
 console.log('\n-- pantry paging --');
-S('activeCuisine','pantry'); S('pantryPage',0);
+S('mode','pantry');S('started',true); S('pantryPage',0);
 S('shownIds',ranked.slice(0,5).map(x=>x.id));
 const first=[...G('shownIds')];
 ctx.cycleFive();
