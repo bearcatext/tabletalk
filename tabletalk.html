@@ -6014,6 +6014,12 @@ function renderCuisineRow(){
     ${selAny()?`<div class="picker-done"><button class="cta on" onclick="togglePicker()">
       ${(()=>{const n=selPool().length;return n?`Show ${n} recipe${n===1?'':'s'}`:'No recipes match — remove a filter'})()}
     </button></div>`:''}`;
+  // Reopening the picker rewinds every strip, so a cuisine chosen earlier can
+  // sit off the right-hand edge with nothing on screen saying it is still on.
+  el.querySelectorAll('.picker-grid').forEach(g=>{
+    const on=g.querySelector('.pcard.on');
+    if(on&&g.scrollWidth>g.clientWidth) g.scrollLeft=Math.max(0,on.offsetLeft-18);
+  });
 }
 
 // Tapping a pill toggles it. One tap from a clean picker goes straight to the
