@@ -6130,8 +6130,13 @@ function deleteGenerated(id){
 function showPg(pg){
   document.querySelectorAll('.pg').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.nt').forEach(t=>t.classList.remove('on'));
-  document.getElementById('pg-'+pg).classList.add('on');
-  document.getElementById('t-'+pg).classList.add('on');
+  const page=document.getElementById('pg-'+pg);
+  if(page) page.classList.add('on');
+  // The builder is reached from the picker and has no tab of its own, so
+  // this is routinely absent. Assuming it was there threw before the form
+  // was drawn, and Add a recipe opened on a blank page.
+  const tab=document.getElementById('t-'+pg);
+  if(tab) tab.classList.add('on');
   if(pg==='favorites')renderFavorites();
   if(pg==='plan')renderPlan();
 }
