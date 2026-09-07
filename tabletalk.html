@@ -525,6 +525,21 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
 .tier-b+.tier-b{border-left:1px solid var(--border2)}
 .tier-b.on{background:var(--ink);color:var(--chalk);font-weight:500}
 .tier-hint{color:var(--ink3);font-size:11px;flex-basis:100%}
+/* ── NARROWING ── */
+.refine{margin:-4px 0 14px}
+.refine-scroll{display:flex;gap:7px;overflow-x:auto;overscroll-behavior-x:contain;
+  -webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:4px;margin-bottom:-4px}
+.refine-scroll::-webkit-scrollbar{display:none}
+.rf{flex:0 0 auto;display:flex;align-items:center;gap:6px;min-height:36px;padding:0 13px;
+  border:1px solid var(--border2);border-radius:18px;background:var(--card);
+  color:var(--ink2);font-family:var(--fb);font-size:13px;cursor:pointer;white-space:nowrap;
+  transition:background .15s,border-color .15s,color .15s}
+.rf:hover{border-color:var(--ink3);color:var(--ink)}
+.rf-e{font-size:15px;line-height:1}
+.rf.on{background:var(--ink);border-color:var(--ink);color:var(--chalk);font-weight:500}
+.rf.diet.on{background:#9a6428;border-color:#9a6428}
+.rf.effort.on{background:var(--blue);border-color:var(--blue)}
+.rf.none{opacity:.35;cursor:default}
 /* ── SHARING ── */
 .btn-share{display:flex;align-items:center;gap:6px;padding:7px 13px;border-radius:20px;
   border:1px solid var(--border2);background:var(--card);color:var(--ink2);
@@ -644,8 +659,9 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
   .nt i{font-size:14px}
   .who-btn{margin-left:8px;width:34px;height:34px;font-size:16px}
   .who-sheet{max-width:none;padding:16px;border-radius:var(--r)}
-  .picker-done{position:sticky;bottom:8px;z-index:5}
-  .picker-done .cta{min-height:48px;box-shadow:0 4px 14px rgba(28,24,20,.22)}
+  .refine{margin-left:-18px;margin-right:-18px}
+  .refine-scroll{padding-left:18px;padding-right:18px}
+  .rf{min-height:40px;font-size:13.5px}
   .shuffle-btn{min-height:40px;padding:0 15px;font-size:13px}
   .pantry-add input,.pantry-add button{min-height:44px}
   .pantry-add button{padding:0 18px;font-size:14px}
@@ -5217,6 +5233,9 @@ let shownIds=[], expandedId=null, activeTab={}, cookStepIdx=0, cookRecipeId=null
 // the screen. Search, the pantry and your own recipes bring their own ordering,
 // so they are exclusive modes that replace the facets rather than narrowing.
 let sel={cuisines:[],diets:[],efforts:[]}, mode=null, started=false;
+// Which group the choice was made from. The home screen asks for one thing;
+// everything else is narrowed afterwards, from the other groups.
+let primaryGroup=null;
 // localStorage throws in some contexts (data: URLs, hardened privacy modes, sandboxed
 // frames). Without this guard the whole script dies at load and the app renders nothing.
 const RAW_LS=(()=>{
@@ -6350,9 +6369,7 @@ function renderCuisineRow(){
       <div class="picker-label">Your pantry</div>
       <div class="picker-grid">${pickerCard('pantry','🧺','Use my pantry','pantry')}</div>
     </div>
-    ${selAny()?`<div class="picker-done"><button class="cta on" onclick="togglePicker()">
-      ${(()=>{const n=selPool().length;return n?`Show ${n} recipe${n===1?'':'s'}`:'No recipes match — remove a filter'})()}
-    </button></div>`:''}`;
+`;
   // Reopening the picker rewinds every strip, so a cuisine chosen earlier can
   // sit off the right-hand edge with nothing on screen saying it is still on.
   el.querySelectorAll('.picker-grid').forEach(g=>{
@@ -6365,11 +6382,10 @@ function renderCuisineRow(){
 // recipes, which is the common case; once something is selected the picker
 // stays open so adding a second filter is one tap rather than three.
 function selectCuisine(id){
-  const wasEmpty=!selAny();
   started=true;
   expandedId=null;openSwap={};
   if(MODES.indexOf(id)>=0){
-    mode=id;pickerOpen=false;
+    mode=id;pickerOpen=false;primaryGroup=null;
     if(id==='search'){
       pantryOpen=false;renderPantryPanel();
       setShown(searchResults().slice(searchPage*SEARCH_MAX,(searchPage+1)*SEARCH_MAX),false);
@@ -6389,13 +6405,13 @@ function selectCuisine(id){
     return;
   }
   mode=null;pantryOpen=false;renderPantryPanel();
-  if(id==='all'){
-    sel.cuisines=[];                     // "all cuisines" clears the group
-  } else {
-    const g=selGroup(id), i=sel[g].indexOf(id);
-    if(i<0) sel[g].push(id); else sel[g].splice(i,1);
-  }
-  pickerOpen=!wasEmpty;
+  // The picker asks one question. Whatever was chosen before gives way, and
+  // the narrowing happens in front of the recipes where it can be judged
+  // against them.
+  sel={cuisines:[],diets:[],efforts:[]};
+  if(id==='all'){ primaryGroup='cuisines' }
+  else { const g=selGroup(id); sel[g]=[id]; primaryGroup=g }
+  pickerOpen=false;
   // pickPage does the rotation: unseen first, then least-recently-seen, so a
   // re-tapped filter still moves on.
   setShown(cycleWithReset());
@@ -6665,6 +6681,41 @@ function recipeCardHtml(r,opts){
     </div>`;
 }
 
+
+// The other two groups, offered once a choice has been made. Pick a region and
+// you narrow by diet; pick a diet and you narrow by region.
+const REFINE_ORDER=['cuisines','diets','efforts'];
+function refineGroups(){
+  if(mode||!primaryGroup) return [];
+  return REFINE_ORDER.filter(g=>g!==primaryGroup);
+}
+function refinePills(group){
+  if(group==='cuisines') return allCuisines().filter(c=>c.id!=='all')
+    .map(c=>({id:c.id,fl:c.fl,label:c.label,cls:''}));
+  if(group==='diets') return DIET_CATS.map(c=>({id:c.id,fl:c.fl,label:c.label,cls:'diet'}));
+  return EFFORT_CATS.map(c=>({id:c.id,fl:c.fl,label:c.label,cls:'effort'}));
+}
+function toggleRefine(id){
+  const g=selGroup(id), i=sel[g].indexOf(id);
+  if(i<0) sel[g].push(id); else sel[g].splice(i,1);
+  expandedId=null;openSwap={};
+  setShown(cycleWithReset());
+  renderCuisineRow();renderCards();
+}
+function refineStripHtml(){
+  const groups=refineGroups();
+  if(!groups.length) return '';
+  const pills=[];
+  groups.forEach(g=>refinePills(g).forEach(p=>{
+    const on=sel[selGroup(p.id)].indexOf(p.id)>=0;
+    const n=countWith(p.id);
+    pills.push(`<button class="rf ${p.cls}${on?' on':''}${!on&&!n?' none':''}"
+      onclick="toggleRefine('${p.id}')" aria-pressed="${on}"
+      ${!on&&!n?'disabled':''}><span class="rf-e">${p.fl}</span>${p.label}</button>`);
+  }));
+  return `<div class="refine"><div class="refine-scroll">${pills.join('')}</div></div>`;
+}
+
 function renderCards(){
   const area=document.getElementById('results-area');
   if(!selAny()){area.innerHTML='';return}
@@ -6690,7 +6741,7 @@ function renderCards(){
   } else {
     label=`${selLabel()} · ${pl} recipe${pl===1?'':'s'}`;
   }
-  let h=`<div class="results-bar">
+  let h=refineStripHtml()+`<div class="results-bar">
     <span class="results-label">${label}</span>
     <span style="display:flex;gap:8px;align-items:center">
     ${isPantry?`<button class="shuffle-btn" onclick="togglePantryPanel()"><i class="ti ti-basket"></i> ${pantryOpen?'Hide':'Edit'} pantry</button>`:''}

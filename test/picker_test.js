@@ -70,91 +70,93 @@ eq('every style brace is closed',(function(){
   for(const ch of css){if(ch==='{')d++;if(ch==='}')d--;if(d<0)return false}
   return d===0;})(),true);
 
-console.log('-- combining filters --');
-const resetSel=()=>{S('sel',{cuisines:[],diets:[],efforts:[]});S('mode',null);S('started',false)};
+console.log('-- the picker asks one question --');
+const resetSel=()=>{S('sel',{cuisines:[],diets:[],efforts:[]});S('mode',null);
+  S('started',false);S('primaryGroup',null)};
 const visIn=c=>G('ALL_RECIPES').filter(r=>r.c===c&&!G('hidden').has(r.id)).length;
 const dietOkIn=(r,d)=>{const st=ctx.dietStatus(r,d);return st.ok||st.fixable};
 
 resetSel();
 ctx.selectCuisine('Mexican');
-eq('one tap from a clean picker goes to the recipes',G('pickerOpen'),false);
-ctx.togglePicker();
-ctx.selectCuisine('df');
-eq('a second filter keeps the first',G('sel').cuisines,['Mexican']);
-eq('and adds its own',G('sel').diets,['df']);
-eq('the picker stays open so a third is one tap',G('pickerOpen'),true);
-
-const mexAll=visIn('Mexican'), both=ctx.selPool();
-eq('combining narrows rather than replaces',both.length<mexAll,true);
-eq('and still leaves something to cook',both.length>0,true);
-eq('every result is Mexican',both.every(r=>r.c==='Mexican'),true);
-eq('every result is dairy-free or one swap away',both.every(r=>dietOkIn(r,'df')),true);
-
-// Regional is "either" — nothing is both Mexican and Thai, so "both" would
-// always be empty.
-resetSel();
-ctx.selectCuisine('Mexican');ctx.selectCuisine('Thai');
-eq('two cuisines mean either',G('sel').cuisines,['Mexican','Thai']);
-eq('the pool is their union',ctx.selPool().length,visIn('Mexican')+visIn('Thai'));
-eq('and holds nothing outside the two',
-  ctx.selPool().every(r=>r.c==='Mexican'||r.c==='Thai'),true);
-
-// Dietary is "both" — returning either would put food on screen that someone
-// who tapped both cannot eat.
-resetSel();
+eq('one tap goes straight to the recipes',G('pickerOpen'),false);
+eq('and that is the only thing chosen',G('sel'),{cuisines:['Mexican'],diets:[],efforts:[]});
+eq('it remembers which group you chose from',G('primaryGroup'),'cuisines');
+ctx.selectCuisine('Thai');
+eq('choosing again replaces rather than adds',G('sel').cuisines,['Thai']);
 ctx.selectCuisine('vgn');
-const vgnOnly=ctx.selPool().length;
-ctx.selectCuisine('gf');
-eq('two diets narrow rather than widen',ctx.selPool().length<vgnOnly,true);
-eq('every result satisfies both',
-  ctx.selPool().every(r=>dietOkIn(r,'vgn')&&dietOkIn(r,'gf')),true);
+eq('across groups too',G('sel'),{cuisines:[],diets:['vgn'],efforts:[]});
+eq('and the group it came from moves with it',G('primaryGroup'),'diets');
 
-// effort combines with the rest
-resetSel();
-ctx.selectCuisine('Thai');ctx.selectCuisine('quick');
-eq('effort narrows a cuisine',
-  ctx.selPool().every(r=>r.c==='Thai'&&r.mins<=G('QUICK_MINS')),true);
-
-resetSel();
-ctx.selectCuisine('Italian');ctx.selectCuisine('Italian');
-eq('tapping a lit pill clears it',G('sel').cuisines,[]);
-
-resetSel();
-ctx.selectCuisine('Italian');ctx.selectCuisine('all');
-eq('all cuisines clears the group',G('sel').cuisines,[]);
-eq('but the app knows you have started',ctx.selAny(),true);
-
-// search, pantry and your own bring their own ordering, so they take over
-resetSel();
-ctx.selectCuisine('Italian');ctx.selectCuisine('pantry');
-eq('a mode takes over',G('mode'),'pantry');
-eq('and the pills stop reading as lit',ctx.selHas('Italian'),false);
-
-// counts answer "what would I get if I tapped this"
+console.log('-- what you narrow by is whatever you did not choose --');
 resetSel();
 ctx.selectCuisine('Mexican');
-eq('a count reflects what is already chosen',ctx.countWith('df'),
-  ctx.selPool({cuisines:['Mexican'],diets:['df'],efforts:[]}).length);
-eq('a lit pill reports the current total',ctx.countWith('Mexican'),ctx.selPool().length);
-eq('a dead end says so rather than showing a number',(()=>{
-  resetSel();
-  const combo=G('DIET_CATS').map(c=>c.id);
-  combo.forEach(d=>ctx.selectCuisine(d));
-  return ctx.selPool().length===0?/nothing with these filters/.test(ctx.pickerCount('Italian')):true;
-})(),true);
+eq('choose a region, narrow by diet and effort',ctx.refineGroups(),['diets','efforts']);
+ctx.selectCuisine('df');
+eq('choose a diet, narrow by region and effort',ctx.refineGroups(),['cuisines','efforts']);
+ctx.selectCuisine('quick');
+eq('choose an effort, narrow by region and diet',ctx.refineGroups(),['cuisines','diets']);
+ctx.selectCuisine('pantry');
+eq('a mode has nothing to narrow from',ctx.refineGroups(),[]);
 
+console.log('-- narrowing still combines the way it always did --');
 resetSel();
-ctx.selectCuisine('Mexican');ctx.selectCuisine('df');
+ctx.selectCuisine('Mexican');
+const mexAll=visIn('Mexican');
+ctx.toggleRefine('df');
+eq('the first choice is kept',G('sel').cuisines,['Mexican']);
+eq('and the narrowing is added',G('sel').diets,['df']);
+const both=ctx.selPool();
+eq('it narrows rather than replaces',both.length<mexAll&&both.length>0,true);
+eq('every result is still Mexican',both.every(r=>r.c==='Mexican'),true);
+eq('and every one is dairy-free or a swap away',both.every(r=>dietOkIn(r,'df')),true);
 eq('the label names both',ctx.selLabel(),'Mexican + Dairy-free');
-resetSel();
-eq('nothing selected reads as all cuisines',ctx.selLabel(),'All cuisines');
-resetSel();
+ctx.toggleRefine('df');
+eq('narrowing comes off again',G('sel').diets,[]);
+eq('leaving what you chose',ctx.selPool().length,mexAll);
 
+// Regional is still "either" and Dietary still "both", now reached by choosing
+// a diet and narrowing by region.
+resetSel();
+ctx.selectCuisine('vgn');
+ctx.toggleRefine('Mexican');ctx.toggleRefine('Thai');
+eq('two regions mean either',G('sel').cuisines,['Mexican','Thai']);
+eq('and nothing outside them',
+  ctx.selPool().every(r=>r.c==='Mexican'||r.c==='Thai'),true);
+eq('all of it still vegan',ctx.selPool().every(r=>dietOkIn(r,'vgn')),true);
 
 resetSel();
-eq('all cuisines is not lit before you touch anything',ctx.selHas('all'),false);
-ctx.selectCuisine('Italian');ctx.selectCuisine('all');
-eq('but is once you clear the group yourself',ctx.selHas('all'),true);
+ctx.selectCuisine('Italian');
+ctx.toggleRefine('vgn');
+const oneDiet=ctx.selPool().length;
+ctx.toggleRefine('gf');
+eq('two diets narrow rather than widen',ctx.selPool().length<=oneDiet,true);
+eq('and every result satisfies both',
+  ctx.selPool().every(r=>dietOkIn(r,'vgn')&&dietOkIn(r,'gf')),true);
+
+resetSel();
+ctx.selectCuisine('Thai');ctx.toggleRefine('quick');
+eq('effort narrows a region',
+  ctx.selPool().every(r=>r.c==='Thai'&&r.mins<=G('QUICK_MINS')),true);
+
+console.log('-- the strip says what it is offering --');
+resetSel();
+ctx.selectCuisine('Japanese');
+{
+  const html=ctx.refineStripHtml();
+  eq('there is a strip',/refine-scroll/.test(html),true);
+  eq('it offers the diets',/toggleRefine\('df'\)/.test(html),true);
+  eq('and the efforts',/toggleRefine\('quick'\)/.test(html),true);
+  eq('but not the group you chose from',/toggleRefine\('Italian'\)/.test(html),false);
+  ctx.toggleRefine('df');
+  eq('a live one reads as pressed',/aria-pressed="true"/.test(ctx.refineStripHtml()),true);
+}
+eq('a dead end is offered but not tappable',(()=>{
+  resetSel();
+  ctx.selectCuisine('Italian');
+  G('DIET_CATS').forEach(c=>{ if(ctx.countWith(c.id)===0) ctx.toggleRefine(c.id) });
+  const html=ctx.refineStripHtml();
+  return !/rf [a-z ]*none/.test(html)||/disabled/.test(html);
+})(),true);
 resetSel();
 
 console.log(`\n${pass} passed, ${fail} failed`);
