@@ -515,6 +515,16 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
 .pg-title b{font-weight:500;font-style:normal;color:var(--accent)}
 .pg-sub{font-size:12px;color:var(--ink3);margin-top:4px}
 
+/* ── STRICTNESS PER CATEGORY ── */
+.tier-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:12px;
+  color:var(--ink2);margin:-6px 0 14px}
+.tier-lbl{font-weight:600;color:var(--ink)}
+.tier-seg{display:inline-flex;border:1px solid var(--border2);border-radius:20px;overflow:hidden}
+.tier-b{min-height:34px;padding:0 14px;border:none;background:var(--card);color:var(--ink2);
+  font-family:var(--fb);font-size:12px;cursor:pointer;transition:background .15s,color .15s}
+.tier-b+.tier-b{border-left:1px solid var(--border2)}
+.tier-b.on{background:var(--ink);color:var(--chalk);font-weight:500}
+.tier-hint{color:var(--ink3);font-size:11px;flex-basis:100%}
 /* ── WHO IS COOKING ── */
 .who-btn{margin-left:12px;width:38px;height:38px;border-radius:50%;padding:0;
   border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.09);
@@ -608,8 +618,7 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
   .pantry-chips{gap:8px}
   .pantry-chip .chip-x{font-size:15px}
   .pantry-mini,.picker-change{min-height:40px;padding:0 15px;font-size:13px}
-  .allergy-toggle::after{content:"";position:absolute;top:-13px;bottom:-13px;
-    left:-9px;right:-9px}
+  .tier-b{min-height:40px;padding:0 16px;font-size:13px}
   .fresh-note button,.gen-notice button,.plan-notice button,.hidden-note button{
     position:relative;min-width:24px;min-height:24px}
   .fresh-note button::after,.gen-notice button::after,.plan-notice button::after,
@@ -5238,7 +5247,26 @@ let genNotice=null;
 let seen=JSON.parse(LS.getItem('dw_seen')||'{}');
 let cooked=JSON.parse(LS.getItem('dw_cooked')||'{}');
 let freshNotice=null;
+// Strictness belongs to the category, not the app. Someone can be coeliac and
+// merely prefer less dairy; one global switch made them pick a single answer
+// for both. Categories with brand-variable ingredients get a second, stricter
+// level; heart-healthy and lactose-free have nothing uncertain to tighten.
+//
+// The stricter level is called an allergy for the three allergens and strict
+// for vegan and vegetarian, where the doubt is rennet or fish sauce rather
+// than a safety matter.
+const TIERED_CATS=['df','gf','nf','vgn','veg'];
+const ALLERGEN_CATS=['df','gf','nf'];
+const hasTiers=c=>TIERED_CATS.indexOf(c)>=0;
+const isAllergen=c=>ALLERGEN_CATS.indexOf(c)>=0;
+let dietTier=JSON.parse(LS.getItem('dw_tiers')||'{}');
+// carried over from the single switch this replaces
 let allergyMode=JSON.parse(LS.getItem('dw_allergy')||'false');
+if(allergyMode&&!Object.keys(dietTier).length){
+  TIERED_CATS.forEach(c=>{dietTier[c]='strict'});
+}
+function tierOf(cat){return dietTier[cat]==='strict'?'strict':'avoid'}
+function tierLabel(cat){return isAllergen(cat)?'Allergy':'Strict'}
 let plan=new Set(JSON.parse(LS.getItem('dw_plan')||'[]'));
 let planNotice=null;
 let qrOpen=false;
@@ -5258,6 +5286,7 @@ function save(){
   LS.setItem('dw_cooked',JSON.stringify(cooked));
   LS.setItem('dw_marco',JSON.stringify(marcoHistory.slice(-40)));
   LS.setItem('dw_allergy',JSON.stringify(allergyMode));
+  LS.setItem('dw_tiers',JSON.stringify(dietTier));
   LS.setItem('dw_plan',JSON.stringify([...plan]));
   LS.setItem('dw_serves',JSON.stringify(serveCount));
 }
@@ -5306,6 +5335,22 @@ const PLANT_DAIRY = rx([
   'rice milk', 'cashew cream', 'cashew paste', 'nut butter', 'peanut butter',
   'butter bean', 'butter lettuce', 'butternut', 'cocoa butter', 'shea butter',
   'vegan', 'dairy-free', 'plant-based', 'non-dairy',
+]);
+
+// Lactose and milk protein are different problems. Lactose is a sugar, and
+// butter and ghee are nearly all fat while a hard cheese loses its lactose to
+// the ageing — all of them are usually fine for someone lactose intolerant.
+// None of them are safe for someone allergic to milk protein. Treating the two
+// as one condition showed a lactose-intolerant cook a far narrower catalogue
+// than they need while offering a milk-allergic one no extra care.
+//
+// Soft and fresh cheeses are left out on purpose: mozzarella, feta, ricotta and
+// halloumi sit in the middle and vary by make, and this is a guide.
+const LOW_LACTOSE = rx([
+  'butter', 'ghee', 'clarified butter',
+  'parmesan', 'parmigiano', 'pecorino', 'grana padano',
+  'cheddar', 'gruyère', 'gruyere', 'comté', 'comte', 'emmental',
+  'manchego', 'provolone', 'swiss', 'cotija',
 ]);
 
 const DAIRY = rx([
@@ -5458,6 +5503,7 @@ function violatesBase(cat, name) {
   const dairy = () => !PLANT_DAIRY.test(n) && DAIRY.test(n);
   switch (cat) {
     case 'df':  return dairy();
+    case 'lac': return dairy() && !LOW_LACTOSE.test(n);
     case 'gf':  return GLUTEN.test(n) && !GLUTEN_OK.test(n);
     case 'veg': return !ANIMAL_OK.test(n) && (MEAT.test(n) || FISH.test(n));
     case 'vgn': return (!ANIMAL_OK.test(n) && (MEAT.test(n) || FISH.test(n))) || EGG.test(n) || HONEY.test(n) || dairy();
@@ -5467,10 +5513,10 @@ function violatesBase(cat, name) {
   }
 }
 
-// With allergyMode on, anything uncertain counts as a violation.
+// At the stricter level, anything uncertain counts as a violation.
 function violates(cat, name) {
   if (violatesBase(cat, name)) return true;
-  return allergyMode ? mayContain(cat, name) : false;
+  return tierOf(cat)==='strict' ? mayContain(cat, name) : false;
 }
 
 const effName = (r, i, applied) => {
@@ -5515,6 +5561,7 @@ function status(r, cat, applied) {
 const DIET_CATS=[
   {id:'hh', label:'Heart healthy', fl:'💚', short:'heart healthy'},
   {id:'df', label:'Dairy-free',    fl:'🥛', short:'dairy-free'},
+  {id:'lac',label:'Lactose-free',  fl:'🐄', short:'lactose-free'},
   {id:'gf', label:'Gluten-free',   fl:'🌾', short:'gluten-free'},
   {id:'veg',label:'Vegetarian',    fl:'🥬', short:'vegetarian'},
   {id:'vgn',label:'Vegan',         fl:'🌱', short:'vegan'},
@@ -5537,7 +5584,7 @@ const dietCat=id=>DIET_CATS.find(c=>c.id===id);
 let _dietCache={};
 function clearDietCache(){_dietCache={}}
 function dietStatus(r,cat){
-  const k=cat+'|'+r.id;
+  const k=cat+'|'+tierOf(cat)+'|'+r.id;
   if(!(k in _dietCache)) _dietCache[k]=status(r,cat,swaps);
   return _dietCache[k];
 }
@@ -5559,22 +5606,39 @@ function dietPool(cat){
 
 // Says plainly how a category is decided, so the label isn't a black box.
 // Preference vs allergy is the user's call, not something the app can infer.
+
+function setTier(cat,t){
+  if(!hasTiers(cat)) return;
+  if(t==='strict') dietTier[cat]='strict'; else delete dietTier[cat];
+  clearDietCache();save();
+  setShown(pickPage(selPool(),[]));
+  renderCuisineRow();renderCards();
+}
+function tierRowHtml(cat){
+  if(!hasTiers(cat)) return '';
+  const c=dietCat(cat), t=tierOf(cat);
+  const strictWord=tierLabel(cat);
+  const hint=t==='strict'
+    ? 'Anything that varies by brand is excluded.'
+    : 'Brand-dependent ingredients are still shown, flagged to check.';
+  return `<div class="tier-row">
+    <span class="tier-lbl">${c.label}</span>
+    <span class="tier-seg">
+      <button class="tier-b${t==='avoid'?' on':''}" aria-pressed="${t==='avoid'}"
+        onclick="setTier('${cat}','avoid')">Avoiding</button>
+      <button class="tier-b${t==='strict'?' on':''}" aria-pressed="${t==='strict'}"
+        onclick="setTier('${cat}','strict')">${strictWord}</button>
+    </span>
+    <span class="tier-hint">${hint}</span>
+  </div>`;
+}
+// kept so a single call still means "treat everything as strict"
 function toggleAllergyMode(){
   allergyMode=!allergyMode;
+  TIERED_CATS.forEach(c=>{ if(allergyMode) dietTier[c]='strict'; else delete dietTier[c] });
   clearDietCache();save();
   if(sel.diets.length) setShown(pickPage(selPool(),[]));
   renderCuisineRow();renderCards();
-}
-function allergyToggleHtml(cat){
-  const c=dietCat(cat);
-  return `<div class="allergy-row">
-    <button class="allergy-toggle${allergyMode?' on':''}" role="switch" aria-checked="${allergyMode}" onclick="toggleAllergyMode()">
-      <span class="allergy-knob"></span></button>
-    <span>I\u2019m allergic, not just avoiding ${c.short.replace(/-free$/,'')}</span>
-    <span class="allergy-hint">${allergyMode
-      ? 'Anything that varies by brand is excluded.'
-      : 'Brand-dependent ingredients are still shown, flagged to check.'}</span>
-  </div>`;
 }
 
 function dietNote(cat){
@@ -5582,6 +5646,7 @@ function dietNote(cat){
   const per={
     hh:`<b>Heart healthy</b> means a lean protein — fish and poultry first, then beans, lentils or tofu — with no deep-frying, under ${HH_CALORIE_CAP} cal a serving, and no butter, cream, cheese, coconut milk, red or processed meat.`,
     df:'<b>Dairy-free</b> excludes milk, butter, cream, cheese and yoghurt. Coconut milk and nut creams count as dairy-free.',
+    lac:'<b>Lactose-free</b> is not the same as dairy-free. It excludes milk, cream, yoghurt and the soft cheeses, and keeps butter, ghee and hard aged cheese such as parmesan and cheddar, which hold little or no lactose. If you react to milk protein rather than the sugar, use Dairy-free set to allergy.',
     gf:'<b>Gluten-free</b> excludes wheat, barley and the sauces that usually contain them — soy sauce, hoisin, oyster sauce, miso and gochujang. Tamari counts as gluten-free.',
     veg:'<b>Vegetarian</b> excludes meat and fish, including fish sauce, oyster sauce, anchovy and dashi. Cheese is counted as vegetarian, though some hard cheeses use animal rennet.',
     vgn:'<b>Vegan</b> additionally excludes dairy, egg and honey.',
@@ -6465,7 +6530,7 @@ function renderCards(){
     ${pl>(isSearch?SEARCH_MAX:5)?`<button class="shuffle-btn" onclick="cycleFive()"><i class="ti ti-refresh"></i> ${isSearch?'More matches':'5 more options'}</button>`:''}
     ${canGenerate()?`<button class="shuffle-btn" onclick="generateRecipes()" ${generating?'disabled':''}><i class="ti ti-sparkles"></i> ${generating?'Writing…':'New recipes'}</button>`:''}
     </span>
-  </div>${diets.map(d=>`<div class="diet-note">${dietNote(d)}</div>`).join('')}${diets.length?allergyToggleHtml(diets[0]):''}${genNoticeHtml()}${freshNoticeHtml()}${hiddenNoticeHtml()}<div class="cards-grid">`;
+  </div>${diets.map(d=>`<div class="diet-note">${dietNote(d)}</div>`+tierRowHtml(d)).join('')}${genNoticeHtml()}${freshNoticeHtml()}${hiddenNoticeHtml()}<div class="cards-grid">`;
   cards.forEach((r,i)=>{
     h+=recipeCardHtml(r,{delay:i*.05,selected:expandedId===r.id});
     if(expandedId===r.id) h+=detailPanelHtml(r);
@@ -6552,7 +6617,7 @@ function dietHintHtml(r){
   if(!cat) return '';
   const c=dietCat(cat), s=dietStatus(r,cat);
   const risky=riskyIngredients(r,cat);
-  const warn=(!allergyMode&&risky.length)
+  const warn=(tierOf(cat)!=='strict'&&risky.length)
     ? `<div class="diet-hint warn"><i class="ti ti-alert-triangle"></i>Check the label on <b>${risky.join('</b>, <b>')}</b> — some brands contain ${c.short.replace(/-free$/,'')}.</div>`
     : '';
   if(s.ok) return warn+`<div class="diet-hint ok"><i class="ti ti-circle-check"></i>This is ${c.short} as written.</div>`;

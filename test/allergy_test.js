@@ -15,8 +15,10 @@ const G=ctx.__g,S=ctx.__s,R=G('ALL_RECIPES');
 let pass=0,fail=0;
 const eq=(n,g,w)=>{const ok=JSON.stringify(g)===JSON.stringify(w);
   console.log((ok?'  PASS  ':'  FAIL  ')+n+(ok?'':`  got=${JSON.stringify(g)} want=${JSON.stringify(w)}`));ok?pass++:fail++};
-const off=()=>{S('allergyMode',false);ctx.clearDietCache()};
-const on =()=>{S('allergyMode',true); ctx.clearDietCache()};
+// strictness lives per category now, not in one global flag
+const STRICT={df:'strict',gf:'strict',nf:'strict',vgn:'strict',veg:'strict'};
+const off=()=>{S('dietTier',{});ctx.clearDietCache()};
+const on =()=>{S('dietTier',Object.assign({},STRICT));ctx.clearDietCache()};
 
 // hard fixes: these are made with dairy, not "may contain"
 off();
@@ -68,6 +70,85 @@ eq('toggles on',G('allergyMode'),true);
 eq('persisted',JSON.parse(store[ctx.pkey('dw_allergy')]),true);
 ctx.toggleAllergyMode();
 eq('toggles back',G('allergyMode'),false);
+
+
+console.log('-- lactose is not milk protein --');
+off();
+// Butter and ghee are nearly all fat; a hard cheese loses its lactose to the
+// ageing. All are usually fine lactose intolerant, none are safe milk allergic.
+[['Butter',false],['Ghee',false],['Parmesan',false],['Aged cheddar',false],
+ ['Pecorino',false],['Gruyere',false]].forEach(function(p){
+  eq('lactose-free keeps '+p[0],ctx.violatesBase('lac',p[0]),p[1]);
+  eq('dairy-free still excludes '+p[0],ctx.violatesBase('df',p[0]),true);
+});
+[['Milk',true],['Double cream',true],['Greek yoghurt',true],['Buttermilk',true],
+ ['Ricotta',true],['Mascarpone',true],['Creme fraiche',true]].forEach(function(p){
+  eq('lactose-free excludes '+p[0],ctx.violatesBase('lac',p[0]),p[1]);
+});
+eq('plant milks are not dairy at all',ctx.violatesBase('lac','Coconut milk'),false);
+eq('peanut butter is not butter',ctx.violatesBase('lac','Peanut butter'),false);
+eq('buttermilk is not butter',ctx.violatesBase('lac','Buttermilk'),true);
+eq('a vegan still avoids every dairy',ctx.violatesBase('vgn','Parmesan'),true);
+eq('and butter',ctx.violatesBase('vgn','Butter'),true);
+
+console.log('-- lactose-free is a wider catalogue than dairy-free --');
+{
+  const lac=R.filter(function(r){return ctx.dietStatus(r,'lac').ok}).length;
+  const df =R.filter(function(r){return ctx.dietStatus(r,'df').ok}).length;
+  eq('and it is genuinely wider',lac>df,true);
+  eq('every dairy-free recipe is also lactose-free',
+    R.filter(function(r){return ctx.dietStatus(r,'df').ok})
+     .every(function(r){return ctx.dietStatus(r,'lac').ok}),true);
+}
+
+console.log('-- strictness is per category --');
+off();
+S('dietTier',{gf:'strict'});ctx.clearDietCache();
+eq('the strict category tightens',ctx.violates('gf','Oats'),true);
+eq('an untouched one does not',ctx.violates('df','Chocolate'),false);
+eq('tierOf reports each separately',[ctx.tierOf('gf'),ctx.tierOf('df')],['strict','avoid']);
+S('dietTier',{df:'strict'});ctx.clearDietCache();
+eq('the other way round too',ctx.violates('df','Chocolate'),true);
+eq('and gluten relaxes',ctx.violates('gf','Oats'),false);
+off();
+
+console.log('-- only some categories have a second level --');
+eq('dairy does',G('hasTiers')('df'),true);
+eq('gluten does',G('hasTiers')('gf'),true);
+eq('nuts do',G('hasTiers')('nf'),true);
+eq('vegan does, for rennet and fish sauce',G('hasTiers')('vgn'),true);
+eq('heart healthy has nothing uncertain to tighten',G('hasTiers')('hh'),false);
+eq('nor does lactose-free',G('hasTiers')('lac'),false);
+eq('an allergen is named as one',ctx.tierLabel('gf'),'Allergy');
+eq('vegan is not called an allergy',ctx.tierLabel('vgn'),'Strict');
+eq('a category without tiers renders no control',ctx.tierRowHtml('hh'),'');
+eq('one with tiers does',/tier-seg/.test(ctx.tierRowHtml('df')),true);
+
+console.log('-- the strictness a recipe was judged at is not cached over --');
+off();
+{
+  // find a recipe the two levels actually disagree about rather than assuming
+  // one exists: a stale cache would make every verdict identical
+  const okLoose=R.filter(function(r){return ctx.dietStatus(r,'gf').ok});
+  S('dietTier',{gf:'strict'});ctx.clearDietCache();
+  const demoted=okLoose.filter(function(r){return !ctx.dietStatus(r,'gf').ok});
+  eq('tightening demotes some recipes',demoted.length>0,true);
+  off();
+  eq('and relaxing brings them all back',
+    demoted.every(function(r){return ctx.dietStatus(r,'gf').ok}),true);
+}
+
+console.log('-- carrying over the old single switch --');
+{
+  const fresh=require('child_process');
+  eq('a saved allergy setting becomes strict everywhere',(function(){
+    S('allergyMode',true);S('dietTier',{});
+    ctx.toggleAllergyMode();          // off
+    ctx.toggleAllergyMode();          // on again, seeding every tier
+    return G('TIERED_CATS').every(function(c){return ctx.tierOf(c)==='strict'});
+  })(),true);
+  off();S('allergyMode',false);
+}
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exitCode=fail?1:0;
