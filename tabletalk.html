@@ -525,6 +525,17 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
 .tier-b+.tier-b{border-left:1px solid var(--border2)}
 .tier-b.on{background:var(--ink);color:var(--chalk);font-weight:500}
 .tier-hint{color:var(--ink3);font-size:11px;flex-basis:100%}
+/* ── SHARING ── */
+.btn-share{display:flex;align-items:center;gap:6px;padding:7px 13px;border-radius:20px;
+  border:1px solid var(--border2);background:var(--card);color:var(--ink2);
+  font-family:var(--fb);font-size:12px;cursor:pointer;white-space:nowrap}
+.btn-share:hover{border-color:var(--ink3);color:var(--ink)}
+.btn-share.on{background:var(--green-s);border-color:var(--green);color:var(--green);font-weight:500}
+.diet-badge.from{background:var(--fav-s);color:#7d5321}
+.share-nm{flex:1;min-width:0;display:flex;align-items:center;gap:8px;min-height:44px;
+  padding:0 12px;font-family:var(--fb);font-size:14px;color:var(--ink);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#share-url{font-size:12px;color:var(--ink3)}
 /* ── WHO IS COOKING ── */
 .who-btn{margin-left:12px;width:38px;height:38px;border-radius:50%;padding:0;
   border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.09);
@@ -5187,7 +5198,7 @@ const RAW_LS=(()=>{
 // with. It is a door you have to mean to open, not a lock.
 const DW_KEYS=['dw_favs','dw_comments','dw_swaps','dw_steps','dw_pantry',
   'dw_generated','dw_hidden','dw_seen','dw_cooked','dw_marco','dw_allergy',
-  'dw_plan','dw_serves'];
+  'dw_plan','dw_serves','dw_tiers','dw_shared','dw_received'];
 let profiles=[], activeProfile=null;
 function saveProfiles(){
   RAW_LS.setItem('tt_profiles',JSON.stringify(profiles));
@@ -5241,8 +5252,13 @@ let stepsDone=JSON.parse(LS.getItem('dw_steps')||'{}');
 let openSwap={};
 let pantry=new Set(JSON.parse(LS.getItem('dw_pantry')||'[]'));
 let generated=JSON.parse(LS.getItem('dw_generated')||'[]');
+// Recipes you have offered to other people, and recipes other people have
+// offered you. What arrives lands in its own category rather than in the
+// stars, which are a list you curated — you decide what graduates.
+let shared=JSON.parse(LS.getItem('dw_shared')||'[]');
+let received=JSON.parse(LS.getItem('dw_received')||'[]');
 let hidden=new Set(JSON.parse(LS.getItem('dw_hidden')||'[]'));
-ALL_RECIPES=BASE_RECIPES.concat(generated);
+ALL_RECIPES=BASE_RECIPES.concat(generated).concat(received);
 let genNotice=null;
 let seen=JSON.parse(LS.getItem('dw_seen')||'{}');
 let cooked=JSON.parse(LS.getItem('dw_cooked')||'{}');
@@ -5287,6 +5303,8 @@ function save(){
   LS.setItem('dw_marco',JSON.stringify(marcoHistory.slice(-40)));
   LS.setItem('dw_allergy',JSON.stringify(allergyMode));
   LS.setItem('dw_tiers',JSON.stringify(dietTier));
+  LS.setItem('dw_shared',JSON.stringify(shared));
+  LS.setItem('dw_received',JSON.stringify(received));
   LS.setItem('dw_plan',JSON.stringify([...plan]));
   LS.setItem('dw_serves',JSON.stringify(serveCount));
 }
@@ -5297,6 +5315,7 @@ function pool(c){
   const vis=r=>!hidden.has(r.id);
   if(c==='search') return searchResults().filter(vis);
   if(c==='mine') return ownRecipes().filter(vis);
+  if(c==='shared') return receivedRecipes().filter(vis);
   if(c==='pantry') return pantryRanked().filter(vis);
   if(isEffortCat(c)) return effortPool(c).filter(vis);
   if(isDietCat(c)) return dietPool(c).filter(vis);
@@ -5656,6 +5675,7 @@ function dietNote(cat){
 }
 
 function dietBadgeHtml(r){
+  if(r.sharedBy) return `<span class="diet-badge from"><i class="ti ti-gift"></i>from ${esc(r.sharedBy)}</span>`;
   const cat=sel.diets[0];
   if(!cat) return '';
   const c=dietCat(cat), s=dietStatus(r,cat);
@@ -5920,7 +5940,7 @@ const MAX_ING=8, MAX_GEN_PER_CALL=3;
 // Hiding filters at pool() rather than removing from ALL_RECIPES, so favourites
 // and Marco's recipe ids still resolve.
 function rebuildCatalogue(){
-  ALL_RECIPES=BASE_RECIPES.concat(generated);
+  ALL_RECIPES=BASE_RECIPES.concat(generated).concat(received);
   clearDietCache();
 }
 function nextRecipeId(){
@@ -6119,6 +6139,8 @@ function showPg(pg){
 function pickerCount(id){
   if(id==='search'){const n=pool('search').length;return `${n} match${n===1?'':'es'}`}
   if(id==='mine'){const n=ownRecipes().length;return `${n} recipe${n===1?'':'s'}`}
+  if(id==='shared'){const who=sharersOf();
+    return who.length===1?`from ${who[0]}`:`from ${who.length} people`}
   if(id==='pantry'){if(!pantry.size)return 'add your ingredients';const n=pool('pantry').length;return n?`${n} within reach`:'nothing close yet'}
   if(isDietCat(id)&&selEmpty()){
     const ok=ALL_RECIPES.filter(r=>dietStatus(r,id).ok).length;
@@ -6175,6 +6197,12 @@ function renderCuisineRow(){
       <div class="picker-label">Your own</div>
       <div class="picker-grid">
         ${ownRecipes().length?pickerCard('mine','📒','My recipes','own'):''}
+        ${receivedRecipes().length?pickerCard('shared','🎁','Shared with you','share'):''}
+        ${shared.length?`<button class="pcard own" onclick="openShare()">
+          <span class="pcard-e">🔗</span>
+          <span class="pcard-t">Send ${shared.length} recipe${shared.length===1?'':'s'}</span>
+          <span class="pcard-n">get the link</span>
+        </button>`:''}
         <button class="pcard own add" onclick="startNewRecipe()">
           <span class="pcard-e">✏️</span>
           <span class="pcard-t">Add a recipe</span>
@@ -6389,7 +6417,7 @@ function effortPool(cat){
 }
 
 // ─── THE SELECTION ───────────────────────────────────────────────────────────
-const MODES=['search','pantry','mine'];
+const MODES=['search','pantry','mine','shared'];
 const selGroup=id=>isDietCat(id)?'diets':isEffortCat(id)?'efforts':'cuisines';
 function selEmpty(){return !(sel.cuisines.length||sel.diets.length||sel.efforts.length)}
 function selAny(){return !!mode||started}
@@ -6415,6 +6443,7 @@ function selPool(x){
   if(!x){
     if(mode==='search') return searchResults().filter(vis);
     if(mode==='mine') return ownRecipes().filter(vis);
+    if(mode==='shared') return receivedRecipes().filter(vis);
     if(mode==='pantry') return pantryRanked().filter(vis);
     x=sel;
   }
@@ -6437,6 +6466,7 @@ function countWith(id){
 function selLabel(){
   if(mode==='search') return searchQuery?'“'+searchQuery+'”':'Search';
   if(mode==='mine') return 'My recipes';
+  if(mode==='shared') return 'Shared with you';
   if(mode==='pantry') return 'Use my pantry';
   const names=sel.cuisines.slice()
     .concat(sel.diets.map(d=>dietCat(d).label))
@@ -6448,6 +6478,7 @@ function selLabel(){
 function selFlag(){
   if(mode==='search') return '🔍';
   if(mode==='mine') return '📒';
+  if(mode==='shared') return '🎁';
   if(mode==='pantry') return '🧺';
   if(sel.cuisines.length===1){const c=allCuisines().find(x=>x.id===sel.cuisines[0]);if(c) return c.fl}
   if(!sel.cuisines.length&&sel.diets.length===1) return dietCat(sel.diets[0]).fl;
@@ -6590,6 +6621,8 @@ function detailPanelHtml(r){
         </button>
         <button class="btn-plan${inPlan(r.id)?' on':''}" onclick="togglePlan(${r.id})">
           <i class="ti ti-basket${inPlan(r.id)?'-check':'-plus'}"></i> ${inPlan(r.id)?'In plan':'Add to plan'}</button>
+        <button class="btn-share${isShared(r.id)?' on':''}" onclick="toggleShare(${r.id})">
+          <i class="ti ti-${isShared(r.id)?'link':'send'}"></i> ${isShared(r.id)?'Sharing':'Share'}</button>
         ${r.own
           ? `<button class="dp-danger" onclick="editRecipe(${r.id})"><i class="ti ti-pencil"></i> Edit</button>
              <button class="dp-danger" onclick="deleteGenerated(${r.id})"><i class="ti ti-trash"></i> Delete</button>`
@@ -8333,6 +8366,130 @@ function toggleCookMarco(){
 })();
 
 
+
+// ─── SHARING ────────────────────────────────────────────────────────
+// A shared recipe travels in the link itself. There is no server to put it on,
+// and that turns out to be the honest design: nothing is uploaded, nothing is
+// kept anywhere, and a recipe reaches someone only because you sent it to them.
+const SHARE_MAX=5;
+const SHARE_FIELD_MAX=400;
+const SHARE_STEP_MAX=1200;
+function isShared(id){return shared.indexOf(id)>=0}
+function toggleShare(id){
+  const i=shared.indexOf(id);
+  if(i<0) shared.push(id); else shared.splice(i,1);
+  save();renderCuisineRow();renderCards();
+}
+// Everything below arrives from a URL, which anyone can write. Strings are
+// rebuilt field by field rather than copied, angle brackets are dropped so a
+// title can never become markup, and control characters go with them.
+function shareClean(v,max){
+  return String(v==null?'':v).replace(/[<>]/g,'').replace(/[\u0000-\u001f\u007f]/g,' ')
+    .replace(/\s+/g,' ').trim().slice(0,max||SHARE_FIELD_MAX);
+}
+function shareNum(v,lo,hi,dflt){
+  const n=Number(v);
+  if(!Number.isFinite(n)) return dflt;
+  return Math.min(hi,Math.max(lo,Math.round(n)));
+}
+function packRecipe(r){
+  return {e:r.e,t:r.t,c:r.c,mins:r.mins,cals:r.cals,serves:r.serves,rating:r.rating,
+    desc:r.desc,
+    ing:r.ing.map(i=>{
+      const o={n:i.n,amt:i.amt,emoji:i.emoji,core:!!i.core};
+      if(i.swaps&&i.swaps.length) o.swaps=i.swaps.map(x=>({n:x.n,amt:x.amt,note:x.note}));
+      return o;
+    }),
+    steps:r.steps.map(st=>{
+      const o={t:st.t,s:st.s};
+      if(st.tip) o.tip=st.tip;
+      if(st.ahead) o.ahead=true;
+      return o;
+    })};
+}
+function unpackRecipe(o,by,id){
+  if(!o||typeof o!=='object') return null;
+  const t=shareClean(o.t,80);
+  if(!t) return null;
+  if(!Array.isArray(o.ing)||!o.ing.length||o.ing.length>MAX_ING) return null;
+  if(!Array.isArray(o.steps)||!o.steps.length||o.steps.length>20) return null;
+  const ing=[],steps=[];
+  for(const i of o.ing){
+    const n=shareClean(i&&i.n,60), amt=shareClean(i&&i.amt,40);
+    if(!n||!amt) return null;
+    const one={n:n,amt:amt,emoji:safeEmoji(shareClean(i.emoji,8),'\ud83e\udd44'),core:!!(i&&i.core)};
+    if(i&&Array.isArray(i.swaps)&&i.swaps.length){
+      one.swaps=i.swaps.slice(0,4).map(x=>({n:shareClean(x&&x.n,60),
+        amt:shareClean(x&&x.amt,40),note:shareClean(x&&x.note,120)}))
+        .filter(x=>x.n&&x.amt);
+      if(!one.swaps.length) delete one.swaps;
+    }
+    ing.push(one);
+  }
+  for(const st of o.steps){
+    const ti=shareClean(st&&st.t,60), body=shareClean(st&&st.s,SHARE_STEP_MAX);
+    if(!ti||!body) return null;
+    const one={t:ti,s:body};
+    const tip=shareClean(st&&st.tip,SHARE_FIELD_MAX);
+    if(tip) one.tip=tip;
+    if(st&&st.ahead) one.ahead=true;
+    steps.push(one);
+  }
+  return {id:id, e:safeEmoji(shareClean(o.e,8),'\ud83c\udf7d'), t:t,
+    c:shareClean(o.c,40)||'All cuisines',
+    mins:shareNum(o.mins,1,600,30), cals:shareNum(o.cals,1,5000,500),
+    serves:shareNum(o.serves,1,20,4),
+    rating:Math.min(5,Math.max(3,Number(o.rating)||4.5)),
+    desc:shareClean(o.desc,300)||'Shared with you.',
+    ing:ing, steps:steps, sharedBy:by, gotAt:Date.now()};
+}
+function shareLink(){
+  const rs=shared.map(id=>ALL_RECIPES.find(r=>r.id===id)).filter(Boolean).slice(0,SHARE_MAX);
+  if(!rs.length) return '';
+  const payload={v:1,by:shareClean((currentProfile()||{}).name,20)||'A friend',
+    r:rs.map(packRecipe)};
+  const base=(typeof location!=='undefined'&&location.href||'').split('#')[0];
+  return base+'#s='+encodeURIComponent(JSON.stringify(payload));
+}
+// Returns what a link is offering without taking it, so it can be shown first.
+function readShareLink(hash){
+  const h=String(hash||'');
+  const at=h.indexOf('#s=');
+  if(at<0) return null;
+  let o;
+  try{ o=JSON.parse(decodeURIComponent(h.slice(at+3))) }catch(e){ return null }
+  if(!o||typeof o!=='object'||!Array.isArray(o.r)||!o.r.length) return null;
+  const by=shareClean(o.by,20)||'A friend';
+  let next=nextRecipeId();
+  const rs=[];
+  for(const raw of o.r.slice(0,SHARE_MAX)){
+    const one=unpackRecipe(raw,by,next);
+    if(one){rs.push(one);next++}
+  }
+  return rs.length?{by:by,recipes:rs}:null;
+}
+function acceptShare(offer){
+  if(!offer||!offer.recipes||!offer.recipes.length) return 0;
+  let n=0;
+  offer.recipes.forEach(r=>{
+    // the same recipe sent twice should not become two
+    const dup=received.find(x=>x.t.toLowerCase()===r.t.toLowerCase()&&x.sharedBy===r.sharedBy);
+    if(dup) return;
+    r.id=nextRecipeId();
+    received.push(r);rebuildCatalogue();n++;
+  });
+  save();
+  return n;
+}
+function dropReceived(id){
+  received=received.filter(r=>r.id!==id);
+  favorites=favorites.filter(f=>f!==id);
+  plan.delete(id);
+  rebuildCatalogue();save();
+}
+const receivedRecipes=()=>ALL_RECIPES.filter(r=>r.sharedBy);
+const sharersOf=()=>[...new Set(receivedRecipes().map(r=>r.sharedBy))];
+
 // ─── SWITCHING PERSON ────────────────────────────────────────────────
 const WHO_EMOJI=['🍳','🥕','🍅','🌶','🍋','🍄','🐟','🧀'];
 function loadState(){
@@ -8349,8 +8506,10 @@ function loadState(){
   plan=new Set(JSON.parse(LS.getItem('dw_plan')||'[]'));
   marcoHistory=JSON.parse(LS.getItem('dw_marco')||'[]');
   serveCount=JSON.parse(LS.getItem('dw_serves')||'{}');
-  ALL_RECIPES=BASE_RECIPES.concat(generated);
-  clearDietCache();
+  dietTier=JSON.parse(LS.getItem('dw_tiers')||'{}');
+  shared=JSON.parse(LS.getItem('dw_shared')||'[]');
+  received=JSON.parse(LS.getItem('dw_received')||'[]');
+  rebuildCatalogue();
 }
 // Switching person changes every list on screen, so start them back at the
 // picker rather than leaving someone else's results sitting there.
@@ -8407,6 +8566,38 @@ function removeProfile(id){
   if(activeProfile===id){applyProfile(profiles[0].id)} else {saveProfiles()}
   return {ok:true};
 }
+
+
+let shareOffer=null;
+function openShare(){whoView={mode:'send',target:null,err:'',fl:null};renderWho();
+  const o=document.getElementById('who-overlay'); if(o) o.hidden=false}
+function shareCopy(){
+  const el=document.getElementById('share-url');
+  if(!el) return;
+  el.select&&el.select();
+  try{ navigator.clipboard.writeText(el.value) }catch(e){ try{document.execCommand('copy')}catch(e2){} }
+  const b=document.getElementById('share-copy'); if(b) b.textContent='Copied';
+}
+// A link is an offer, not a delivery. Show what it holds and let the person
+// decide — it arrived from a URL, and nobody should have their catalogue
+// changed by opening one.
+function checkShareLink(){
+  const offer=readShareLink(typeof location!=='undefined'?location.hash:'');
+  if(!offer) return;
+  shareOffer=offer;
+  try{ history.replaceState(null,'',location.pathname+location.search) }catch(e){}
+  whoView={mode:'offer',target:null,err:'',fl:null};renderWho();
+  const o=document.getElementById('who-overlay'); if(o) o.hidden=false;
+}
+function acceptOffer(){
+  const n=acceptShare(shareOffer);
+  shareOffer=null;closeWho();
+  mode='shared';sel={cuisines:[],diets:[],efforts:[]};started=true;pickerOpen=false;
+  setShown(pickPage(selPool(),[]));
+  renderCuisineRow();renderCards();
+  return n;
+}
+function declineOffer(){shareOffer=null;closeWho()}
 
 let whoView={mode:'list',target:null,err:'',fl:null};
 function openWho(){whoView={mode:'list',target:null,err:'',fl:null};renderWho();
@@ -8465,6 +8656,30 @@ function renderWho(){
       +err
       +'<button class="who-go" onclick="whoDoAdd()">Create</button>'
       +'<button class="who-back" onclick="whoGo(\'list\')">Back</button>';
+  } else if(v==='send'){
+    const rs=shared.map(function(id){return ALL_RECIPES.find(function(r){return r.id===id})})
+      .filter(Boolean);
+    const url=shareLink();
+    body='<div class="who-head">Send '+rs.length+' recipe'+(rs.length===1?'':'s')+'</div>'
+      +'<p class="who-sub">The recipes travel inside the link. Nothing is uploaded and nothing is kept anywhere — whoever you send it to gets them, and no one else.</p>'
+      +'<div class="who-list">'+rs.map(function(r){
+          return '<div class="who-row"><span class="share-nm">'+r.e+' '+esc(r.t)+'</span>'
+            +'<button class="who-cog" onclick="toggleShare('+r.id+');whoGo(\'send\')" aria-label="Stop sharing '+escAttr(r.t)+'"><i class="ti ti-x"></i></button></div>'
+        }).join('')+'</div>'
+      +'<input class="who-in" id="share-url" readonly value="'+escAttr(url)+'">'
+      +'<button class="who-go" id="share-copy" onclick="shareCopy()">Copy the link</button>'
+      +(rs.length>=SHARE_MAX?'<p class="who-note">That is the most a single link carries. Send these, then pick the next few.</p>':'')
+      +'<button class="who-back" onclick="closeWho()">Done</button>';
+  } else if(v==='offer'){
+    const o=shareOffer||{by:'',recipes:[]};
+    body='<div class="who-head">🎁 '+esc(o.by)+' shared '+o.recipes.length+' recipe'+(o.recipes.length===1?'':'s')+'</div>'
+      +'<p class="who-sub">They go into Shared with you. Star any you want to keep.</p>'
+      +'<div class="who-list">'+o.recipes.map(function(r){
+          return '<div class="who-row"><span class="share-nm">'+r.e+' '+esc(r.t)+'</span>'
+            +'<span class="who-now">'+r.mins+' min</span></div>'
+        }).join('')+'</div>'
+      +'<button class="who-go" onclick="acceptOffer()">Add them</button>'
+      +'<button class="who-back" onclick="declineOffer()">No thanks</button>';
   } else if(v==='manage'){
     const p=profileById(whoView.target)||{name:'',fl:'',id:'',pin:null};
     body='<div class="who-head">'+p.fl+' '+esc(p.name)+'</div>'
@@ -8510,6 +8725,7 @@ renderCuisineRow();
 renderPantryPanel();
 updateFavBadge();
 renderWhoBtn();
+checkShareLink();
 renderMarco();
 updatePlanBadge();
 renderSearchBar();
