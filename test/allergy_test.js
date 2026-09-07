@@ -231,18 +231,30 @@ console.log('-- how much of the catalogue a coeliac can reach --');
   const fixable=R.filter(function(r){return ctx.dietStatus(r,'gf').fixable}).length;
   const shut=R.length-ok-fixable;
   eq('most of it is reachable one way or another',ok+fixable>R.length*0.9,true);
-  eq('and very little is shut out',shut<25,true);
+  eq('and almost nothing is shut out',shut<5,true);
   eq('the sums add up',ok+fixable+shut,R.length);
 }
 
-console.log('-- what stays shut out, stays shut out honestly --');
-// A gluten-free dumpling wrapper is not a dumpling wrapper, and seitan is
-// gluten by definition. These are not offered a substitute that would quietly
-// turn the dish into something else.
-['Wonton wrappers','Gyoza wrappers','Dumpling wrappers','Seitan','Phyllo pastry']
-  .forEach(function(n){
-    eq('no pretend substitute for '+n,ctx.glutenFreeSub(n),null);
-  });
+console.log('-- a substitute is offered wherever one really exists --');
+// Refusing wrappers while offering gluten-free spaghetti was not a consistent
+// standard. Rice-and-tapioca wrappers are sold, and the difference they make is
+// the same kind gluten-free pasta makes: more fragile, still the dish.
+['Wonton wrappers','Gyoza wrappers','Dumpling wrappers','Phyllo pastry',
+ 'Puff pastry','Shortcrust pastry','Doenjang (fermented soy paste)',
+ 'Doubanjiang (spicy bean paste)','Taboon or flatbread','White miso paste'
+].forEach(function(n){
+  const sub=ctx.glutenFreeSub(n);
+  eq(n+' is offered a way out',!!sub,true);
+  eq('and it is genuinely gluten-free',sub&&ctx.violatesBase('gf',sub.n),false);
+});
+
+console.log('-- except where the wheat is the ingredient --');
+// Seitan is gluten. Chunjang is fermented soybean and roasted wheat flour, and
+// without the wheat it is not chunjang — there is no supermarket substitute to
+// point anyone at, so none is invented.
+['Seitan','Chunjang black bean paste'].forEach(function(n){
+  eq('nothing pretended for '+n,ctx.glutenFreeSub(n),null);
+});
 
 console.log('-- a core ingredient can still be swapped --');
 // status() has always counted swaps on core ingredients toward fixable, but the

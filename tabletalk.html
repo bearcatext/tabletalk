@@ -5473,7 +5473,7 @@ const GF_SUB=[
   [/\bhoisin\b/i,             'Gluten-free hoisin sauce', 'same sweetness, no wheat'],
   [/\boyster sauce\b/i,       'Gluten-free oyster sauce', 'thinner, otherwise the same'],
   [/\bworcestershire\b/i,     'Gluten-free Worcestershire', 'malt vinegar swapped out'],
-  [/\bmiso\b/i,               'Rice miso', 'barley miso is the one with gluten in it'],
+  [/\bmiso\b/i,               'Gluten-free miso', 'rice miso usually is; barley miso never is, so read the tub'],
   [/\bpanko\b/i,              'Gluten-free panko', 'browns a shade faster'],
   [/\bbreadcrumbs?\b/i,       'Gluten-free breadcrumbs', 'browns a shade faster'],
   [/\b(plain |all-purpose )?flour\b/i, 'Gluten-free plain flour', 'for dusting and thickening it behaves the same'],
@@ -5492,6 +5492,16 @@ const GF_SUB=[
   [/\bnoodles?\b/i,           'Rice noodles', 'softer, and they cook in half the time'],
   [/\bpizza dough\b/i,        'Gluten-free pizza dough', 'less stretch — press it out rather than throw it'],
   [/\b(rolls?|buns?)\b/i,     'Gluten-free rolls', 'drier crumb, so warm them first'],
+  [/\b(wonton|gyoza|dumpling|jiaozi) wrappers?\b/i,
+                               'Gluten-free dumpling wrappers', 'rice and tapioca — more fragile, and they will not pleat as tightly'],
+  [/\bwrappers?\b/i,          'Gluten-free dumpling wrappers', 'rice and tapioca — more fragile, and they will not pleat as tightly'],
+  [/\b(phyllo|filo)\b/i,      'Gluten-free phyllo', 'harder to find and it tears, so work in fewer, thicker layers'],
+  [/\bpuff pastry\b/i,        'Gluten-free puff pastry', 'less lift, but it browns the same'],
+  [/\bshortcrust pastry\b/i,  'Gluten-free shortcrust', 'shorter and more crumbly — patch it in the tin rather than rolling'],
+  [/\bpastry\b/i,             'Gluten-free pastry', 'less lift and more crumble'],
+  [/\bdoenjang\b/i,           'Gluten-free doenjang', 'traditional doenjang is only soybean and salt; the wheat is a modern addition'],
+  [/\bdoubanjiang\b/i,        'Gluten-free doubanjiang', 'some brands are broad bean and chilli alone — check the label'],
+  [/\b(taboon|flatbread)\b/i, 'Gluten-free flatbread', 'stiffer, so warm it before it goes under anything wet'],
 ];
 // pasta keeps its own shape name, because "gluten-free pasta" on a shopping
 // list is less use than the shape you actually want
