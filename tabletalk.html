@@ -8392,64 +8392,110 @@ function shareNum(v,lo,hi,dflt){
   if(!Number.isFinite(n)) return dflt;
   return Math.min(hi,Math.max(lo,Math.round(n)));
 }
+// Spelling out "ingredients" and "emoji" for every line, then percent-encoding
+// every quote and brace, made a three-recipe link 8.2KB — a dozen wrapped lines
+// in a message. Short keys, positional rows and base64 bring the same three
+// down to about 5KB, and the link reads as a link rather than a wall of %22%3A.
+const B64='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+// Only encodeURIComponent is used to reach the bytes, so this works the same in
+// a browser and in the test harness without TextEncoder or btoa.
+function utf8Bytes(str){
+  const t=encodeURIComponent(String(str)); const out=[];
+  for(let i=0;i<t.length;i++){
+    if(t.charAt(i)==='%'){out.push(parseInt(t.substr(i+1,2),16));i+=2}
+    else out.push(t.charCodeAt(i));
+  }
+  return out;
+}
+function bytesUtf8(bytes){
+  let t='';
+  for(let i=0;i<bytes.length;i++){
+    const b=bytes[i]&255;
+    t+='%'+(b<16?'0':'')+b.toString(16);
+  }
+  try{ return decodeURIComponent(t) }catch(e){ return null }
+}
+function b64enc(bytes){
+  let out='';
+  for(let i=0;i<bytes.length;i+=3){
+    const a=bytes[i], b=bytes[i+1], c=bytes[i+2];
+    out+=B64.charAt(a>>2);
+    out+=B64.charAt(((a&3)<<4)|((b===undefined?0:b)>>4));
+    if(b!==undefined) out+=B64.charAt(((b&15)<<2)|((c===undefined?0:c)>>6));
+    if(c!==undefined) out+=B64.charAt(c&63);
+  }
+  return out;
+}
+function b64dec(str){
+  const out=[]; let buf=0, bits=0;
+  for(let i=0;i<str.length;i++){
+    const v=B64.indexOf(str.charAt(i));
+    if(v<0) continue;
+    buf=(buf<<6)|v; bits+=6;
+    if(bits>=8){ bits-=8; out.push((buf>>bits)&255) }
+  }
+  return out;
+}
 function packRecipe(r){
-  return {e:r.e,t:r.t,c:r.c,mins:r.mins,cals:r.cals,serves:r.serves,rating:r.rating,
-    desc:r.desc,
-    ing:r.ing.map(i=>{
-      const o={n:i.n,amt:i.amt,emoji:i.emoji,core:!!i.core};
-      if(i.swaps&&i.swaps.length) o.swaps=i.swaps.map(x=>({n:x.n,amt:x.amt,note:x.note}));
-      return o;
+  return {e:r.e,t:r.t,c:r.c,m:r.mins,k:r.cals,s:r.serves,g:r.rating,d:r.desc,
+    i:r.ing.map(i=>{
+      const row=[i.n,i.amt,i.emoji,i.core?1:0];
+      if(i.swaps&&i.swaps.length) row.push(i.swaps.map(x=>[x.n,x.amt,x.note]));
+      return row;
     }),
-    steps:r.steps.map(st=>{
-      const o={t:st.t,s:st.s};
-      if(st.tip) o.tip=st.tip;
-      if(st.ahead) o.ahead=true;
-      return o;
+    p:r.steps.map(st=>{
+      const row=[st.t,st.s];
+      if(st.tip||st.ahead) row.push(st.tip||'');
+      if(st.ahead) row.push(1);
+      return row;
     })};
 }
 function unpackRecipe(o,by,id){
   if(!o||typeof o!=='object') return null;
   const t=shareClean(o.t,80);
   if(!t) return null;
-  if(!Array.isArray(o.ing)||!o.ing.length||o.ing.length>MAX_ING) return null;
-  if(!Array.isArray(o.steps)||!o.steps.length||o.steps.length>20) return null;
+  if(!Array.isArray(o.i)||!o.i.length||o.i.length>MAX_ING) return null;
+  if(!Array.isArray(o.p)||!o.p.length||o.p.length>20) return null;
   const ing=[],steps=[];
-  for(const i of o.ing){
-    const n=shareClean(i&&i.n,60), amt=shareClean(i&&i.amt,40);
+  for(const row of o.i){
+    if(!Array.isArray(row)) return null;
+    const n=shareClean(row[0],60), amt=shareClean(row[1],40);
     if(!n||!amt) return null;
-    const one={n:n,amt:amt,emoji:safeEmoji(shareClean(i.emoji,8),'\ud83e\udd44'),core:!!(i&&i.core)};
-    if(i&&Array.isArray(i.swaps)&&i.swaps.length){
-      one.swaps=i.swaps.slice(0,4).map(x=>({n:shareClean(x&&x.n,60),
-        amt:shareClean(x&&x.amt,40),note:shareClean(x&&x.note,120)}))
+    const one={n:n,amt:amt,emoji:safeEmoji(shareClean(row[2],8),'\ud83e\udd44'),core:!!row[3]};
+    if(Array.isArray(row[4])&&row[4].length){
+      one.swaps=row[4].slice(0,4)
+        .filter(x=>Array.isArray(x))
+        .map(x=>({n:shareClean(x[0],60),amt:shareClean(x[1],40),note:shareClean(x[2],120)}))
         .filter(x=>x.n&&x.amt);
       if(!one.swaps.length) delete one.swaps;
     }
     ing.push(one);
   }
-  for(const st of o.steps){
-    const ti=shareClean(st&&st.t,60), body=shareClean(st&&st.s,SHARE_STEP_MAX);
+  for(const row of o.p){
+    if(!Array.isArray(row)) return null;
+    const ti=shareClean(row[0],60), body=shareClean(row[1],SHARE_STEP_MAX);
     if(!ti||!body) return null;
     const one={t:ti,s:body};
-    const tip=shareClean(st&&st.tip,SHARE_FIELD_MAX);
+    const tip=shareClean(row[2],SHARE_FIELD_MAX);
     if(tip) one.tip=tip;
-    if(st&&st.ahead) one.ahead=true;
+    if(row[3]) one.ahead=true;
     steps.push(one);
   }
   return {id:id, e:safeEmoji(shareClean(o.e,8),'\ud83c\udf7d'), t:t,
     c:shareClean(o.c,40)||'All cuisines',
-    mins:shareNum(o.mins,1,600,30), cals:shareNum(o.cals,1,5000,500),
-    serves:shareNum(o.serves,1,20,4),
-    rating:Math.min(5,Math.max(3,Number(o.rating)||4.5)),
-    desc:shareClean(o.desc,300)||'Shared with you.',
+    mins:shareNum(o.m,1,600,30), cals:shareNum(o.k,1,5000,500),
+    serves:shareNum(o.s,1,20,4),
+    rating:Math.min(5,Math.max(3,Number(o.g)||4.5)),
+    desc:shareClean(o.d,300)||'Shared with you.',
     ing:ing, steps:steps, sharedBy:by, gotAt:Date.now()};
 }
 function shareLink(){
   const rs=shared.map(id=>ALL_RECIPES.find(r=>r.id===id)).filter(Boolean).slice(0,SHARE_MAX);
   if(!rs.length) return '';
-  const payload={v:1,by:shareClean((currentProfile()||{}).name,20)||'A friend',
+  const payload={v:2,b:shareClean((currentProfile()||{}).name,20)||'A friend',
     r:rs.map(packRecipe)};
   const base=(typeof location!=='undefined'&&location.href||'').split('#')[0];
-  return base+'#s='+encodeURIComponent(JSON.stringify(payload));
+  return base+'#s='+b64enc(utf8Bytes(JSON.stringify(payload)));
 }
 // Returns what a link is offering without taking it, so it can be shown first.
 function readShareLink(hash){
@@ -8457,9 +8503,11 @@ function readShareLink(hash){
   const at=h.indexOf('#s=');
   if(at<0) return null;
   let o;
-  try{ o=JSON.parse(decodeURIComponent(h.slice(at+3))) }catch(e){ return null }
+  const text=bytesUtf8(b64dec(h.slice(at+3)));
+  if(text==null) return null;
+  try{ o=JSON.parse(text) }catch(e){ return null }
   if(!o||typeof o!=='object'||!Array.isArray(o.r)||!o.r.length) return null;
-  const by=shareClean(o.by,20)||'A friend';
+  const by=shareClean(o.b,20)||'A friend';
   let next=nextRecipeId();
   const rs=[];
   for(const raw of o.r.slice(0,SHARE_MAX)){

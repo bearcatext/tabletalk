@@ -80,58 +80,115 @@ console.log('-- a shared recipe is a category, not a star --');
 }
 
 console.log('-- a link is untrusted input --');
+// Build payloads the way the app writes them, so these exercise the checks
+// rather than bouncing off an unrecognised format.
+const mk=(ctx,o)=>'#s='+ctx.b64enc(ctx.utf8Bytes(JSON.stringify(o)));
+const one=(over)=>Object.assign({e:'\u{1F372}',t:'Soup',c:'Italian',m:20,k:300,s:4,g:4.5,
+  d:'A soup',i:[['Water','1L','\u{1F4A7}',1]],p:[['Boil','Boil the water']]},over||{});
 {
-  const {ctx,G}=boot();
-  const nasty={v:1,by:'<img src=x onerror=alert(1)>',r:[{
-    e:'\u{1F372}',t:'<script>alert(1)</script>Soup',c:'Italian',mins:20,cals:300,serves:4,
-    desc:'Nice <b>soup</b>',
-    ing:[{n:'Water <i>x</i>',amt:'1L',emoji:'\u{1F4A7}',core:true}],
-    steps:[{t:'Boil <br>',s:'Boil the water <script>x</script>'}]}]};
-  const offer=ctx.readShareLink('#s='+encodeURIComponent(JSON.stringify(nasty)));
+  const {ctx}=boot();
+  const offer=ctx.readShareLink(mk(ctx,{v:2,b:'<img src=x onerror=alert(1)>',r:[one({
+    t:'<script>alert(1)</script>Soup',
+    d:'Nice <b>soup</b>',
+    i:[['Water <i>x</i>','1L','\u{1F4A7}',1]],
+    p:[['Boil <br>','Boil the water <script>x</script>']]})]}));
   eq('it still reads',!!offer,true);
-  const one=offer.recipes[0];
+  const got=offer.recipes[0];
   eq('no angle brackets in the sender',/[<>]/.test(offer.by),false);
-  eq('nor in the title',/[<>]/.test(one.t),false);
-  eq('nor the description',/[<>]/.test(one.desc),false);
-  eq('nor an ingredient',/[<>]/.test(one.ing[0].n),false);
-  eq('nor a step',/[<>]/.test(one.steps[0].s),false);
-  eq('the readable words survive',/Soup/.test(one.t),true);
+  eq('nor in the title',/[<>]/.test(got.t),false);
+  eq('nor the description',/[<>]/.test(got.desc),false);
+  eq('nor an ingredient',/[<>]/.test(got.ing[0].n),false);
+  eq('nor a step',/[<>]/.test(got.steps[0].s),false);
+  eq('the readable words survive',/Soup/.test(got.t),true);
 }
 {
   const {ctx}=boot();
-  const junk=['#s=not-json','#s=%7B%7D','#s='+encodeURIComponent('{"v":1,"r":[]}'),
-    '#s='+encodeURIComponent('{"v":1,"r":"nope"}'),'#nothing','',
-    '#s='+encodeURIComponent(JSON.stringify({v:1,r:[{t:'No ingredients',ing:[],steps:[]}]})),
-    '#s='+encodeURIComponent(JSON.stringify({v:1,r:[{t:'No steps',ing:[{n:'a',amt:'1'}],steps:[]}]}))];
+  // fields the app never sends must not ride along
+  const offer=ctx.readShareLink(mk(ctx,{v:2,b:'X',r:[one({own:true,gen:true,id:9999,
+    sharedBy:'Someone else',evil:'payload'})]}));
+  const got=offer.recipes[0];
+  eq('an unexpected key is dropped',got.evil,undefined);
+  eq('it cannot claim to be yours',got.own,undefined);
+  eq('nor pick its own id',got.id===9999,false);
+  eq('nor forge who sent it',got.sharedBy,'X');
+}
+{
+  const {ctx}=boot();
+  const junk=['#s=not-base64-at-all','#s=','#nothing','',
+    mk(ctx,{v:2,b:'X',r:[]}),
+    mk(ctx,{v:2,b:'X',r:'nope'}),
+    mk(ctx,{v:2,b:'X',r:[one({i:[]})]}),
+    mk(ctx,{v:2,b:'X',r:[one({p:[]})]}),
+    mk(ctx,{v:2,b:'X',r:[one({t:''})]}),
+    mk(ctx,{v:2,b:'X',r:[one({i:'not an array'})]}),
+    mk(ctx,{v:2,b:'X',r:[one({i:[{n:'object not row'}]})]}),
+    mk(ctx,{v:2,b:'X',r:[one({p:[['Only a title']]})]})];
   junk.forEach(function(h,i){
     eq('rubbish link '+i+' is refused, not thrown at',ctx.readShareLink(h),null);
   });
 }
 {
   const {ctx,G}=boot();
-  // a payload claiming more ingredients than the app allows
-  const many=[];for(let i=0;i<40;i++)many.push({n:'Thing '+i,amt:'1',core:true});
-  const o={v:1,by:'X',r:[{t:'Too much',c:'Italian',mins:5,cals:5,ing:many,
-    steps:[{t:'Do',s:'It'}]}]};
+  const many=[];for(let i=0;i<40;i++)many.push(['Thing '+i,'1','\u{1F944}',1]);
   eq('an oversized recipe is refused',
-    ctx.readShareLink('#s='+encodeURIComponent(JSON.stringify(o))),null);
+    ctx.readShareLink(mk(ctx,{v:2,b:'X',r:[one({i:many})]})),null);
+  const steps=[];for(let i=0;i<40;i++)steps.push(['Step '+i,'Do it']);
+  eq('and one with too many steps',
+    ctx.readShareLink(mk(ctx,{v:2,b:'X',r:[one({p:steps})]})),null);
 }
 {
   const {ctx,G}=boot();
-  const one={t:'Fine',c:'Italian',mins:5,cals:5,serves:4,
-    ing:[{n:'Water',amt:'1L',core:true}],steps:[{t:'Boil',s:'Water'}]};
-  const o={v:1,by:'X',r:[one,one,one,one,one,one,one,one]};
-  const offer=ctx.readShareLink('#s='+encodeURIComponent(JSON.stringify(o)));
+  const offer=ctx.readShareLink(mk(ctx,{v:2,b:'X',
+    r:[one(),one(),one(),one(),one(),one(),one(),one()]}));
   eq('a link is capped',offer.recipes.length,G('SHARE_MAX'));
 }
 {
   const {ctx}=boot();
-  const o={v:1,by:'X',r:[{t:'Silly numbers',c:'Italian',mins:-99,cals:9e9,serves:0,
-    ing:[{n:'Water',amt:'1L',core:true}],steps:[{t:'Boil',s:'Water'}]}]};
-  const one=ctx.readShareLink('#s='+encodeURIComponent(JSON.stringify(o))).recipes[0];
-  eq('a negative time is brought back into range',one.mins>0,true);
-  eq('an absurd calorie count is clamped',one.cals<=5000,true);
-  eq('and servings cannot be zero',one.serves>=1,true);
+  const got=ctx.readShareLink(mk(ctx,{v:2,b:'X',
+    r:[one({m:-99,k:9e9,s:0})]})).recipes[0];
+  eq('a negative time is brought back into range',got.mins>0,true);
+  eq('an absurd calorie count is clamped',got.cals<=5000,true);
+  eq('and servings cannot be zero',got.serves>=1,true);
+}
+{
+  const {ctx}=boot();
+  // a very long title should be cut, not carried
+  const got=ctx.readShareLink(mk(ctx,{v:2,b:'X',
+    r:[one({t:'x'.repeat(500),d:'y'.repeat(2000)})]})).recipes[0];
+  eq('a runaway title is trimmed',got.t.length<=80,true);
+  eq('and a runaway description',got.desc.length<=300,true);
+}
+
+console.log('-- the link survives the round trip intact --');
+{
+  const {ctx,G}=boot();
+  // a recipe with accents, emoji and swaps, which the encoding must not mangle
+  const rich=G('ALL_RECIPES').find(function(r){
+    return r.ing.some(function(i){return i.swaps&&i.swaps.length})&&/[^\x00-\x7F]/.test(r.t+r.desc)})
+    ||G('ALL_RECIPES').find(function(r){return r.ing.some(function(i){return i.swaps&&i.swaps.length})});
+  ctx.toggleShare(rich.id);
+  const back=ctx.readShareLink('#'+ctx.shareLink().split('#')[1]).recipes[0];
+  eq('the title comes back exactly',back.t,rich.t);
+  eq('and the description',back.desc,rich.desc);
+  eq('every ingredient name',back.ing.map(function(i){return i.n}),
+    rich.ing.map(function(i){return i.n}));
+  eq('every amount',back.ing.map(function(i){return i.amt}),
+    rich.ing.map(function(i){return i.amt}));
+  eq('the swaps survive',
+    back.ing.reduce(function(n,i){return n+((i.swaps||[]).length)},0),
+    rich.ing.reduce(function(n,i){return n+((i.swaps||[]).length)},0));
+  eq('and the step text',back.steps.map(function(s){return s.s}),
+    rich.steps.map(function(s){return s.s}));
+}
+{
+  const {ctx,G}=boot();
+  // the compact form is what makes a link sendable rather than a page of text
+  const rs=G('ALL_RECIPES').slice(0,3);
+  rs.forEach(function(r){ctx.toggleShare(r.id)});
+  const url=ctx.shareLink();
+  eq('three recipes stay well under 8000 characters',url.length<8000,true);
+  eq('and the payload is base64, not a wall of percent signs',
+    url.split('#s=')[1].indexOf('%'),-1);
 }
 
 console.log('-- letting one go --');
