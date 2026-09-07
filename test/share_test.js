@@ -255,5 +255,21 @@ console.log('-- opening a link puts the offer on screen --');
   eq('and clears the offer',fresh.G('shareOffer'),null);
 }
 
+console.log('-- a link tapped while the app is already open --');
+{
+  // changing only the fragment does not reload the page, so the offer has to
+  // be picked up on hashchange as well as on load
+  const {ctx,G}=boot();
+  const r=G('ALL_RECIPES')[0];
+  ctx.toggleShare(r.id);
+  const hash='#'+ctx.shareLink().split('#')[1];
+  const fresh=boot();
+  eq('the handler exists to be wired up',typeof fresh.ctx.checkShareLink,'function');
+  fresh.ctx.location.hash=hash;
+  fresh.ctx.checkShareLink();
+  eq('and it finds the offer',!!fresh.G('shareOffer'),true);
+  eq('without taking anything',fresh.G('received').length,0);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if(fail) process.exit(1);
