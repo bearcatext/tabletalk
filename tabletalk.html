@@ -536,6 +536,8 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
   padding:0 12px;font-family:var(--fb);font-size:14px;color:var(--ink);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #share-url{font-size:12px;color:var(--ink3)}
+.share-cta{margin-top:10px}
+.who-pick[disabled]{opacity:.45;cursor:default}
 /* ── WHO IS COOKING ── */
 .who-btn{margin-left:12px;width:38px;height:38px;border-radius:50%;padding:0;
   border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.09);
@@ -701,6 +703,7 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
     <h1 class="pg-title">Your <b>Starred</b> recipes</h1>
     <p class="pg-sub" id="fav-sub">Recipes you've starred appear here</p>
   </div>
+    <div id="fav-share"></div>
   <div id="fav-grid"></div>
 </div>
 
@@ -6561,7 +6564,7 @@ function renderCards(){
     ${pl>(isSearch?SEARCH_MAX:5)?`<button class="shuffle-btn" onclick="cycleFive()"><i class="ti ti-refresh"></i> ${isSearch?'More matches':'5 more options'}</button>`:''}
     ${canGenerate()?`<button class="shuffle-btn" onclick="generateRecipes()" ${generating?'disabled':''}><i class="ti ti-sparkles"></i> ${generating?'Writing…':'New recipes'}</button>`:''}
     </span>
-  </div>${diets.map(d=>`<div class="diet-note">${dietNote(d)}</div>`+tierRowHtml(d)).join('')}${genNoticeHtml()}${freshNoticeHtml()}${hiddenNoticeHtml()}<div class="cards-grid">`;
+  </div>${diets.map(d=>`<div class="diet-note">${dietNote(d)}</div>`+tierRowHtml(d)).join('')}${genNoticeHtml()}${shareNoticeHtml()}${freshNoticeHtml()}${hiddenNoticeHtml()}<div class="cards-grid">`;
   cards.forEach((r,i)=>{
     h+=recipeCardHtml(r,{delay:i*.05,selected:expandedId===r.id});
     if(expandedId===r.id) h+=detailPanelHtml(r);
@@ -6910,12 +6913,19 @@ function cookNav(dir){
 function renderFavorites(){
   const el=document.getElementById('fav-grid');
   const sub=document.getElementById('fav-sub');
+  const emptyBar=document.getElementById('fav-share');
   if(!favorites.length){
+    if(emptyBar) emptyBar.innerHTML='';
     sub.textContent='Recipes you save appear here';
     el.innerHTML=`<div class="fav-empty"><i class="ti ti-star"></i><p>No starred recipes yet</p><small>Tap the star on any recipe card to save it</small></div>`;
     return;
   }
   sub.textContent=`${favorites.length} saved recipe${favorites.length>1?'s':''}`;
+  const bar=document.getElementById('fav-share');
+  if(bar) bar.innerHTML=`<button class="cta share-cta" onclick="openShare()">
+    <i class="ti ti-send"></i>${shared.length
+      ? `Send ${shared.length} recipe${shared.length===1?'':'s'} to someone`
+      : 'Send recipes to someone'}</button>`;
   const favRecipes=favorites.map(id=>ALL_RECIPES.find(r=>r.id===id)).filter(Boolean);
   el.innerHTML=`<div class="cards-grid">`+favRecipes.map((r,i)=>
     recipeCardHtml(r,{delay:i*.04,onclick:`jumpToRecipe(${r.id})`,
@@ -8375,10 +8385,21 @@ const SHARE_MAX=5;
 const SHARE_FIELD_MAX=400;
 const SHARE_STEP_MAX=1200;
 function isShared(id){return shared.indexOf(id)>=0}
+let shareNotice=null;
 function toggleShare(id){
   const i=shared.indexOf(id);
   if(i<0) shared.push(id); else shared.splice(i,1);
-  save();renderCuisineRow();renderCards();
+  shareNotice=shared.length?shared.length:null;
+  if(whoView&&whoView.mode==='send') shareNotice=null;
+  save();renderCuisineRow();renderCards();renderFavorites();
+}
+function dismissShareNotice(){shareNotice=null;renderCards()}
+function shareNoticeHtml(){
+  if(!shareNotice||!shared.length) return '';
+  return `<div class="fresh-note">
+    <i class="ti ti-send"></i>${shared.length} recipe${shared.length===1?'':'s'} ready to send —
+    <button class="fresh-cta" onclick="openShare()">get the link</button>
+    <button onclick="dismissShareNotice()" aria-label="Dismiss">×</button></div>`;
 }
 // Everything below arrives from a URL, which anyone can write. Strings are
 // rebuilt field by field rather than copied, angle brackets are dropped so a
@@ -8707,18 +8728,33 @@ function renderWho(){
       +'<button class="who-go" onclick="whoDoAdd()">Create</button>'
       +'<button class="who-back" onclick="whoGo(\'list\')">Back</button>';
   } else if(v==='send'){
-    const rs=shared.map(function(id){return ALL_RECIPES.find(function(r){return r.id===id})})
+    // your stars first, since that is the list you curated, then anything else
+    // already marked so it can be seen and taken off again
+    const starred=favorites.map(function(id){return ALL_RECIPES.find(function(r){return r.id===id})})
       .filter(Boolean);
-    const url=shareLink();
-    body='<div class="who-head">Send '+rs.length+' recipe'+(rs.length===1?'':'s')+'</div>'
-      +'<p class="who-sub">The recipes travel inside the link. Nothing is uploaded and nothing is kept anywhere — whoever you send it to gets them, and no one else.</p>'
-      +'<div class="who-list">'+rs.map(function(r){
-          return '<div class="who-row"><span class="share-nm">'+r.e+' '+esc(r.t)+'</span>'
-            +'<button class="who-cog" onclick="toggleShare('+r.id+');whoGo(\'send\')" aria-label="Stop sharing '+escAttr(r.t)+'"><i class="ti ti-x"></i></button></div>'
-        }).join('')+'</div>'
-      +'<input class="who-in" id="share-url" readonly value="'+escAttr(url)+'">'
-      +'<button class="who-go" id="share-copy" onclick="shareCopy()">Copy the link</button>'
-      +(rs.length>=SHARE_MAX?'<p class="who-note">That is the most a single link carries. Send these, then pick the next few.</p>':'')
+    const extra=shared.map(function(id){return ALL_RECIPES.find(function(r){return r.id===id})})
+      .filter(function(r){return r&&favorites.indexOf(r.id)<0});
+    const rows=starred.concat(extra);
+    const n=shared.length, full=n>=SHARE_MAX;
+    body='<div class="who-head">Send recipes</div>'
+      +'<p class="who-sub">Pick what to pass on. They travel inside the link — nothing is uploaded and nothing is kept anywhere, so whoever you send it to gets them and no one else.</p>'
+      +(rows.length
+        ? '<div class="who-list">'+rows.map(function(r){
+            const on=isShared(r.id);
+            const off=!on&&full;
+            return '<div class="who-row'+(on?' on':'')+'">'
+              +'<button class="who-pick"'+(off?' disabled':'')
+              +' onclick="toggleShare('+r.id+');whoGo(\'send\')">'
+              +'<span class="who-fl">'+r.e+'</span><span class="who-nm">'+esc(r.t)+'</span>'
+              +(on?'<span class="who-now">sending</span>':'')+'</button></div>'
+          }).join('')+'</div>'
+        : '<p class="who-note">Star a recipe, or tap Share on one, and it will show up here to send.</p>')
+      +(n
+        ? '<input class="who-in" id="share-url" readonly value="'+escAttr(shareLink())+'">'
+          +'<button class="who-go" id="share-copy" onclick="shareCopy()">Copy the link for '
+          +n+' recipe'+(n===1?'':'s')+'</button>'
+        : '')
+      +(full?'<p class="who-note">Five is the most a single link carries. Send these, then pick the next few.</p>':'')
       +'<button class="who-back" onclick="closeWho()">Done</button>';
   } else if(v==='offer'){
     const o=shareOffer||{by:'',recipes:[]};

@@ -271,5 +271,61 @@ console.log('-- a link tapped while the app is already open --');
   eq('without taking anything',fresh.G('received').length,0);
 }
 
+console.log('-- finding your way to a link --');
+{
+  const {ctx,G}=boot();
+  const r=G('ALL_RECIPES')[0];
+  // marking one from its own page should say so, not leave you on a dead end
+  ctx.toggleShare(r.id);
+  eq('a notice offers the next step',/get the link/.test(ctx.shareNoticeHtml()),true);
+  eq('and says how many are waiting',/1 recipe ready to send/.test(ctx.shareNoticeHtml()),true);
+  ctx.toggleShare(r.id);
+  eq('unmarking the last one clears it',ctx.shareNoticeHtml(),'');
+}
+{
+  const {ctx,G}=boot();
+  // the Starred page is the front door
+  ctx.toggleFav(G('ALL_RECIPES')[0].id);
+  ctx.renderFavorites();
+  const bar=ctx.document.getElementById('fav-share').innerHTML;
+  eq('starring puts a send button on the page',/openShare/.test(bar),true);
+  eq('which invites you before anything is picked',/Send recipes to someone/.test(bar),true);
+  ctx.toggleShare(G('ALL_RECIPES')[0].id);
+  ctx.renderFavorites();
+  eq('and counts them once you have',
+    /Send 1 recipe to someone/.test(ctx.document.getElementById('fav-share').innerHTML),true);
+}
+{
+  const {ctx,G}=boot();
+  // the sheet lists your stars so picking one is a single tap
+  const a=G('ALL_RECIPES')[0], b=G('ALL_RECIPES')[1];
+  ctx.toggleFav(a.id); ctx.toggleFav(b.id);
+  ctx.whoGo('send');
+  const sheet=ctx.document.getElementById('who-overlay').innerHTML;
+  eq('both stars are offered',sheet.indexOf(a.t)>=0&&sheet.indexOf(b.t)>=0,true);
+  eq('with nothing picked there is no link yet',/share-url/.test(sheet),false);
+  ctx.toggleShare(a.id); ctx.whoGo('send');
+  const after=ctx.document.getElementById('who-overlay').innerHTML;
+  eq('picking one produces the link',/share-url/.test(after),true);
+  eq('and the button counts it',/Copy the link for 1 recipe/.test(after),true);
+}
+{
+  const {ctx,G}=boot();
+  // nothing starred and nothing marked should still explain itself
+  ctx.whoGo('send');
+  eq('an empty sheet says what to do',
+    /Star a recipe/.test(ctx.document.getElementById('who-overlay').innerHTML),true);
+}
+{
+  const {ctx,G}=boot();
+  const rs=G('ALL_RECIPES').slice(0,G('SHARE_MAX')+2);
+  rs.forEach(function(r){ctx.toggleFav(r.id)});
+  rs.slice(0,G('SHARE_MAX')).forEach(function(r){ctx.toggleShare(r.id)});
+  ctx.whoGo('send');
+  const sheet=ctx.document.getElementById('who-overlay').innerHTML;
+  eq('a full link says so',/most a single link carries/.test(sheet),true);
+  eq('and the ones you cannot add are disabled',/disabled/.test(sheet),true);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if(fail) process.exit(1);
