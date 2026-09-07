@@ -86,6 +86,26 @@ node test/search_test.js
 node test/run.js some-other-build.html
 ```
 
+## House rules for pasta
+
+Evan Funke’s four, and every pasta dish in the catalogue follows them:
+
+| Rule | What it means | Why |
+| --- | --- | --- |
+| Salt the water | Until it tastes like mild seawater | Seasons the pasta from the inside out. It is the only chance you get. |
+| Ditch the cream | No heavy cream in a traditional sauce | The sauce binds on starch coming off the pasta, not on dairy fat. |
+| Toss hard | Work it into the sauce, do not fold | Pulling the starch out is what turns fat and water into an emulsion. |
+| Undercook | Pull it a minute or two early | It finishes in the pan and takes the flavour of the sauce with it. |
+
+```bash
+node tools/pasta.js
+```
+
+Dishes where the pasta cooks in the pot it is served from — pasta e fagioli,
+pasta e ceci — are exempt from all but the second. There is no separate water to
+salt, nothing is drained, and the starch goes straight into the dish. Lasagne is
+exempt too: the sheets never see a pot.
+
 ## Still to build
 
 Four areas to grow into, each with the same shape as the dinner catalogue —
