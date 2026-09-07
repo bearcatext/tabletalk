@@ -86,6 +86,22 @@ node test/search_test.js
 node test/run.js some-other-build.html
 ```
 
+## Still to build
+
+Four areas to grow into, each with the same shape as the dinner catalogue —
+ingredients, steps, swaps, servings that scale:
+
+- **Cocktails** — the recipe shape mostly fits, but calories are close to
+  meaningless, the diet classifier has little to say, and steps run to two or
+  three lines. Likely its own mode rather than a cuisine.
+- **Snacks** — fits the existing shape almost exactly.
+- **Bread** — proving and resting are long waits rather than work, so the
+  make-ahead model already in the app matters more here than anywhere else.
+  "45 minutes" means something different when 40 of them are the dough sitting
+  on its own.
+- **Pasta** — making it, not cooking with it. Few ingredients, technique-heavy,
+  so the weight falls on the step text rather than the ingredient list.
+
 ## Notes
 
 Your data (favourites, pantry, plan, your own recipes, Marco's history) lives in
