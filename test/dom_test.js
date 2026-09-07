@@ -96,5 +96,36 @@ console.log('-- the rest of the render path survives a real document --');
   noThrow('updatePlanBadge',()=>ctx.updatePlanBadge());
 }
 
+console.log('-- anything hidden by the hidden attribute really goes away --');
+// The profile sheet shipped with display:flex on its class, which beats the
+// browser's own [hidden]{display:none}. The attribute was set, the element was
+// laid out anyway, and a full-page half-black layer at z-index 400 sat over the
+// app swallowing every tap. Every test passed. This is the check that would
+// have caught it, and it needs no browser: it is a specificity question.
+{
+  const style=(html.match(/<style>([\s\S]*?)<\/style>/)||[,''])[1];
+  const carriers=[];
+  html.replace(/<[a-z]+[^>]*\bhidden\b[^>]*>/gi,function(tag){
+    const cls=(tag.match(/class="([^"]*)"/)||[,''])[1];
+    cls.split(/\s+/).filter(Boolean).forEach(function(c){
+      if(carriers.indexOf(c)<0) carriers.push(c)});
+    return tag;
+  });
+  eq('there are elements hidden this way to check',carriers.length>0,true);
+
+  const globalGuard=/\[hidden\]\s*\{[^}]*display\s*:\s*none/.test(style);
+  const unsafe=carriers.filter(function(c){
+    // does any plain class rule give it a display?
+    const re=new RegExp('\\.'+c+'\\{([^}]*)\\}','g');
+    let m,sets=false;
+    while((m=re.exec(style))) if(/display\s*:/.test(m[1])) sets=true;
+    if(!sets) return false;
+    if(globalGuard) return false;
+    // then it needs its own [hidden] rule to win
+    return !new RegExp('\\.'+c+'\\[hidden\\]').test(style);
+  });
+  eq('none of them can outrank [hidden] and stay on screen',unsafe,[]);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if(fail) process.exit(1);
