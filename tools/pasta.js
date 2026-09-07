@@ -40,7 +40,7 @@ const ctx={localStorage:{getItem:()=>null,setItem(){},removeItem(){}},
 ctx.globalThis=ctx;vm.createContext(ctx);new vm.Script(code).runInContext(ctx);
 const R=ctx.__g('ALL_RECIPES');
 
-const SHAPES=/\b(spaghetti|linguine|penne|rigatoni|bucatini|tagliatelle|fettuccine|orecchiette|farfalle|fusilli|pappardelle|macaroni|ziti|paccheri|casarecce|trofie|ditalini|orzo|lasagne|lasagna|tagliolini|cavatelli|gemelli|conchiglie|pasta)\b/i;
+const SHAPES=/\b(spaghetti|linguine|penne|rigatoni|rigatoncini|bucatini|tagliatelle|fettuccine|orecchiette|farfalle|fusilli|pappardelle|macaroni|ziti|paccheri|casarecce|trofie|ditalini|orzo|lasagne|lasagna|tagliolini|cavatelli|gemelli|conchiglie|pasta)\b/i;
 const CREAM=/\b(double cream|heavy cream|single cream|cream)\b/i;
 const NOT_CREAM=/coconut|sour cream|ice cream|cream cheese/i;
 

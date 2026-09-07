@@ -150,5 +150,42 @@ console.log('-- carrying over the old single switch --');
   off();S('allergyMode',false);
 }
 
+console.log('-- pasta is wheat whatever it is called --');
+// Naming a few shapes let rigatoni, ziti, lasagne sheets and gnocchi through,
+// and three wheat dishes were being offered to coeliacs as gluten-free.
+['Rigatoncini','Rigatoni','Ziti','Lasagne sheets','Gnocchi','Potato gnocchi',
+ 'Bucatini','Tagliatelle','Fettuccine','Orecchiette','Farfalle','Fusilli',
+ 'Pappardelle','Paccheri','Trofie','Conchiglie','Cannelloni','Ravioli',
+ 'Tortellini','Spaghetti','Penne rigate','Linguine','Ditalini','Elbow macaroni'
+].forEach(function(n){
+  eq(n+' counts as gluten',ctx.violatesBase('gf',n),true);
+});
+eq('but gluten-free pasta does not',ctx.violatesBase('gf','Gluten-free penne'),false);
+eq('nor rice noodles',ctx.violatesBase('gf','Rice noodles'),false);
+
+console.log('-- no pasta dish is offered as gluten-free --');
+{
+  const SHAPES=/(spaghetti|linguine|penne|rigatoni|rigatoncini|bucatini|tagliatelle|fettuccine|orecchiette|farfalle|fusilli|pappardelle|macaroni|ziti|paccheri|casarecce|trofie|ditalini|orzo|lasagne|lasagna|gnocchi|tagliolini|tonnarelli|cavatelli|gemelli|conchiglie)/i;
+  const wheat=R.filter(function(r){
+    return r.ing.some(function(i){return SHAPES.test(i.n)&&!/gluten-free/i.test(i.n)})});
+  eq('there are wheat pasta dishes to check',wheat.length>5,true);
+  eq('and not one of them passes as gluten-free',
+    wheat.filter(function(r){return ctx.dietStatus(r,'gf').ok}).map(function(r){return r.t}),[]);
+}
+
+console.log('-- the dairy and lactose lists agree with each other --');
+// Grana Padano and Manchego sat in the low-lactose list without ever being in
+// the dairy one, so nothing asked whether they were dairy at all.
+['Grana Padano','Manchego','Gouda','Asiago','Taleggio','Gorgonzola','Stilton',
+ 'Roquefort','Raclette','Quark','Kefir','Parmigiano Reggiano','Pecorino Romano'
+].forEach(function(n){
+  eq(n+' counts as dairy',ctx.violatesBase('df',n),true);
+});
+eq('every low-lactose cheese is recognised as dairy first',(function(){
+  return ['Butter','Ghee','Parmesan','Pecorino','Grana Padano','Cheddar','Gruyere',
+          'Comte','Emmental','Manchego','Provolone','Cotija','Gouda','Asiago']
+    .every(function(n){return ctx.violatesBase('df',n)&&!ctx.violatesBase('lac',n)});
+})(),true);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exitCode=fail?1:0;

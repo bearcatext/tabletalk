@@ -5039,6 +5039,26 @@ const BASE_RECIPES = [
      {t:"Bake",s:"Bake at 375°F / 190°C for 35 min until the top is blistered and the sides bubble."},
      {t:"Rest",s:"Twenty minutes before cutting, no less. Straight out of the oven it slumps into a puddle on the plate."},
    ]},
+  {id:281,e:"🌶",t:"Rigatoncini all'arrabbiata",c:"Italian",mins:35,cals:640,rating:4.8,serves:4,aheadMins:10,
+   desc:"Heat in layers: chilli oil brewed ahead, then fresh bird chillies. Inspired by Evan Funke.",
+   ing:[
+     {n:"Rigatoncini",amt:"400g",emoji:"🍝",core:true,swaps:[{n:"Rigatoni",amt:"400g",note:"the same shape, one size up"},{n:"Penne rigate",amt:"400g",note:"ridges still hold the sauce"}]},
+     {n:"Canned San Marzano tomatoes",amt:"1 can (400g), blended smooth",emoji:"🥫",core:true},
+     {n:"Olio santo",amt:"4 tbsp",emoji:"🌶",core:false,swaps:[{n:"Chilli oil",amt:"4 tbsp",note:"shop-bought, usually milder"},{n:"Calabrian chilli paste",amt:"2 tbsp",note:"thicker and fruitier, less of it"}]},
+     {n:"Thai bird chillies",amt:"3, finely chopped",emoji:"🌶",core:true,swaps:[{n:"Bird's eye chillies",amt:"3",note:"the same heat under another name"},{n:"Dried chilli flakes",amt:"2 tsp",note:"blunter, no fresh brightness"}]},
+     {n:"Garlic",amt:"5 cloves, thickly shaved",emoji:"🧄",core:true},
+     {n:"Olive oil",amt:"4 tbsp",emoji:"🥫",core:false,swaps:[{n:"Extra olio santo",amt:"4 tbsp",note:"hotter still, if you dare"},{n:"Avocado oil",amt:"4 tbsp",note:"neutral, no fruitiness"}]},
+     {n:"Flat-leaf parsley",amt:"large handful, chopped",emoji:"🌿",core:false,swaps:[{n:"Fresh basil",amt:"large handful",note:"sweeter, less grassy"}]},
+     {n:"Pecorino Romano",amt:"60g, finely grated",emoji:"🧀",core:false,swaps:[{n:"Parmigiano Reggiano",amt:"60g, grated",note:"milder, nuttier"},{n:"Grana Padano",amt:"60g, grated",note:"softer and less salty"}]},
+   ],
+   steps:[
+     {t:"Brew the olio santo",s:"Warm 250ml of olive oil over the lowest heat with a tablespoon of crushed arbol chillies, a sliced Fresno, a sliced red jalapeño and a tablespoon of gochugaru. Hold it at the barest simmer for 5 minutes, then take it off and leave it to cool completely before straining into a jar.",ahead:true,tip:"This makes far more than one dinner needs, which is the point — it keeps for weeks and every batch after this is four tablespoons out of a jar."},
+     {t:"Boil the pasta",s:"Bring a large pot of water to a rolling boil and salt it until it tastes like mild seawater. Drop the rigatoncini and pull it two minutes shy of al dente. Keep a mug of the starchy water back.",tip:"Two minutes, not one. It has a fair amount of sauce to travel through."},
+     {t:"Shave the garlic in",s:"In a wide pan over medium-low heat, warm the olive oil and the olio santo together. Add the shaved garlic and cook it slowly until translucent and barely gold at the edges.",tip:"Thick shavings, not a mince. They should stay as pieces you can see in the finished dish."},
+     {t:"Wake the chillies",s:"Stir in the bird chillies and half the parsley and let them go for thirty seconds, then pour in the blended tomatoes and a good pinch of salt. Simmer 5–8 minutes until the oil starts to rise and separate at the edges."},
+     {t:"Tumble it together",s:"Lift the pasta straight from the water into the sauce, add a splash of the pasta water, and turn the heat up. Toss hard and keep tossing — this is where the sauce goes from tomato and oil to one glossy thing.",tip:"Vigorously. The starch will not come out of the pasta on its own."},
+     {t:"Finish off the heat",s:"Once it has tightened to a glaze, kill the heat and fold through the rest of the parsley. Plate it hot and bury it under grated Pecorino."},
+   ]},
   {id:280,e:"🍋",t:"Linguine al limone",c:"Italian",mins:25,cals:740,rating:4.8,serves:4,
    desc:"Butter, lemon and Parmigiano emulsified by the pasta itself — no cream. Inspired by Evan Funke.",
    ing:[
@@ -5390,7 +5410,7 @@ const LOW_LACTOSE = rx([
   'butter', 'ghee', 'clarified butter',
   'parmesan', 'parmigiano', 'pecorino', 'grana padano',
   'cheddar', 'gruyère', 'gruyere', 'comté', 'comte', 'emmental',
-  'manchego', 'provolone', 'swiss', 'cotija',
+  'manchego', 'provolone', 'swiss', 'cotija', 'gouda', 'asiago',
 ]);
 
 const DAIRY = rx([
@@ -5401,6 +5421,8 @@ const DAIRY = rx([
   'ricotta', 'mascarpone', 'provolone', 'fontina', 'reblochon', 'camembert', 'brie',
   'cotija', 'oaxaca', 'monterey jack', 'pepper jack', 'swiss', 'yoghurt', 'yogurt',
   'labneh', 'crema', 'queso', 'evaporated milk', 'condensed milk',
+  'grana padano', 'manchego', 'gouda', 'asiago', 'taleggio',
+  'gorgonzola', 'stilton', 'roquefort', 'raclette', 'quark', 'kefir',
 ]);
 
 // Wheat-bearing condiments are the ones people miss: soy sauce, hoisin, oyster
@@ -5416,6 +5438,14 @@ const GLUTEN = rx([
   'soy sauce', 'dark soy', 'light soy', 'hoisin', 'oyster sauce', 'worcestershire',
   'miso', 'doenjang', 'gochujang', 'chunjang', 'tianmianjiang', 'doubanjiang',
   'tonkatsu sauce', 'okonomiyaki sauce',
+  // pasta by shape. Missing one of these means offering a coeliac a bowl
+  // of wheat, so the list is deliberately long.
+  'rigatoni', 'rigatoncini', 'ziti', 'lasagne', 'lasagna', 'gnocchi',
+  'bucatini', 'tagliatelle', 'tagliolini', 'tonnarelli', 'fettuccine',
+  'orecchiette', 'farfalle', 'fusilli', 'pappardelle', 'paccheri',
+  'casarecce', 'trofie', 'cavatelli', 'gemelli', 'conchiglie', 'rotini',
+  'cannelloni', 'manicotti', 'ravioli', 'tortellini', 'agnolotti',
+  'spelt', 'rye', 'durum', 'farro', 'freekeh',
 ]);
 const GLUTEN_OK = rx([
   'tamari', 'coconut amino', 'rice flour', 'cornflour', 'corn flour', 'cornstarch',
