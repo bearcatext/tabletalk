@@ -5456,6 +5456,59 @@ const GLUTEN_OK = rx([
   'lettuce leaves', 'rice paper', 'sweet potato glass noodle', 'sweet potato noodle',
 ]);
 
+
+// Ninety-seven recipes were shut out of gluten-free with no way back in, and
+// almost none of them needed to be. Soy sauce alone blocked thirty, and tamari
+// is a straight one-for-one that this file already counts as gluten-free. What
+// was missing was not the substitute but the offer: the swap has to exist on
+// the ingredient for status() to call the recipe fixable.
+//
+// These are like-for-like only — the same ingredient in a form that happens to
+// be gluten-free, at the same quantity. Anything that would make a different
+// dish is deliberately absent: dumpling wrappers are not rice paper, and seitan
+// is gluten by definition.
+const GF_SUB=[
+  [/\b(dark |light )?soy sauce\b/i, 'Tamari', 'brewed without wheat, same salt and depth'],
+  [/\bgochujang\b/i,          'Gluten-free gochujang', 'made on rice rather than barley malt'],
+  [/\bhoisin\b/i,             'Gluten-free hoisin sauce', 'same sweetness, no wheat'],
+  [/\boyster sauce\b/i,       'Gluten-free oyster sauce', 'thinner, otherwise the same'],
+  [/\bworcestershire\b/i,     'Gluten-free Worcestershire', 'malt vinegar swapped out'],
+  [/\bmiso\b/i,               'Rice miso', 'barley miso is the one with gluten in it'],
+  [/\bpanko\b/i,              'Gluten-free panko', 'browns a shade faster'],
+  [/\bbreadcrumbs?\b/i,       'Gluten-free breadcrumbs', 'browns a shade faster'],
+  [/\b(plain |all-purpose )?flour\b/i, 'Gluten-free plain flour', 'for dusting and thickening it behaves the same'],
+  [/\bcouscous\b/i,           'Quinoa', 'not couscous, but it takes the same dressing'],
+  [/\bbeer\b/i,               'Gluten-free beer', 'brewed on sorghum or rice'],
+  [/\begg noodles?\b/i,       'Rice noodles', 'softer, and they cook in half the time'],
+  [/\bwheat noodles?\b/i,     'Rice noodles', 'softer, and they cook in half the time'],
+  [/\bramen noodles?\b/i,     'Rice noodles', 'not ramen, but it carries the broth'],
+  [/\budon\b/i,               'Rice noodles', 'thinner and less chewy'],
+  [/\b(pita|pitta)\b/i,       'Gluten-free pita', 'stiffer, warm it before serving'],
+  [/\b(baguette|ciabatta|sourdough|crusty bread|white bread|bread)\b/i,
+                               'Gluten-free bread', 'drier crumb, so it soaks faster'],
+  [/\btortillas?\b/i,         'Corn tortillas', 'naturally gluten-free, smaller and less pliable'],
+  [/\bsoba\b/i,               'Pure buckwheat soba', 'most soba is cut with wheat; the 100% kind is not'],
+  [/\b(fideo|vermicelli)\b/i, 'Rice vermicelli', 'the same thin strands, no wheat'],
+  [/\bnoodles?\b/i,           'Rice noodles', 'softer, and they cook in half the time'],
+  [/\bpizza dough\b/i,        'Gluten-free pizza dough', 'less stretch — press it out rather than throw it'],
+  [/\b(rolls?|buns?)\b/i,     'Gluten-free rolls', 'drier crumb, so warm them first'],
+];
+// pasta keeps its own shape name, because "gluten-free pasta" on a shopping
+// list is less use than the shape you actually want
+const GF_PASTA=/\b(spaghetti|linguine|penne|rigatoni|rigatoncini|bucatini|tagliatelle|fettuccine|orecchiette|farfalle|fusilli|pappardelle|macaroni|ziti|paccheri|casarecce|trofie|ditalini|orzo|lasagne|lasagna|gnocchi|tonnarelli|conchiglie|pasta)\b/i;
+
+function glutenFreeSub(name){
+  const n=String(name||'');
+  // rice noodles are already noodles that are already gluten-free. Matching
+  // on shape alone offered them a substitute for a problem they do not have.
+  if(!n||!violatesBase('gf',n)) return null;
+  if(GF_PASTA.test(n)) return {n:'Gluten-free '+n.charAt(0).toLowerCase()+n.slice(1),
+    note:'cooks faster and is less forgiving — taste it early'};
+  for(const [re,to,note] of GF_SUB) if(re.test(n)) return {n:to,note:note};
+  return null;
+}
+
+
 const MEAT = rx([
   'beef', 'steak', 'sirloin', 'ribeye', 'bavette', 'flank', 'chuck', 'brisket',
   'short rib', 'veal', 'lamb', 'mutton', 'pork', 'bacon', 'lardon', 'pancetta',
@@ -5582,6 +5635,22 @@ function violatesBase(cat, name) {
     default:    return false;
   }
 }
+
+// Offer the substitute on every ingredient that blocks gluten-free and does not
+// already have a way out. Runs once, over the shipped catalogue, mutating the
+// same objects ALL_RECIPES holds.
+(function offerGlutenSwaps(){
+  BASE_RECIPES.forEach(r=>{
+    r.ing.forEach(ing=>{
+      if(!violatesBase('gf',ing.n)) return;
+      const already=(ing.swaps||[]).some(sw=>!violatesBase('gf',sw.n));
+      if(already) return;
+      const sub=glutenFreeSub(ing.n);
+      if(!sub) return;
+      (ing.swaps||(ing.swaps=[])).push({n:sub.n,amt:ing.amt,note:sub.note});
+    });
+  });
+})();
 
 // At the stricter level, anything uncertain counts as a violation.
 function violates(cat, name) {
@@ -6733,7 +6802,7 @@ function ingTabHtml(r){
     const displayName=chosenObj?chosenObj.n:ing.n;
     const displayAmt=chosenObj?chosenObj.amt:ing.amt;
     const isOpen=openSwap.rid===r.id&&openSwap.idx===i;
-    if(ing.core){
+    if(ing.core&&!(ing.swaps||[]).length){
       h+=`<div class="ing-row core">
         <span class="ing-emoji">${ing.emoji}</span>
         <div class="ing-info"><div class="ing-name">${displayName}</div><div class="ing-amount">${withUS(scaleAmount(displayAmt,servesFactor(r)))}</div></div>

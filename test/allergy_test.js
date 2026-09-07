@@ -187,5 +187,84 @@ eq('every low-lactose cheese is recognised as dairy first',(function(){
     .every(function(n){return ctx.violatesBase('df',n)&&!ctx.violatesBase('lac',n)});
 })(),true);
 
+console.log('-- a wheat ingredient is offered a way out --');
+// 97 recipes were shut out of gluten-free with no route back. Soy sauce alone
+// blocked 30, and tamari is a straight one-for-one. The substitutes existed in
+// the world; what was missing was the offer on the ingredient.
+[['Soy sauce','Tamari'],['Dark soy sauce','Tamari'],['Gochujang','Gluten-free gochujang'],
+ ['Spaghetti','Gluten-free spaghetti'],['Rigatoncini','Gluten-free rigatoncini'],
+ ['Potato gnocchi','Gluten-free potato gnocchi'],['Panko breadcrumbs','Gluten-free panko'],
+ ['Plain flour','Gluten-free plain flour'],['Oyster sauce','Gluten-free oyster sauce']
+].forEach(function(p){
+  const sub=ctx.glutenFreeSub(p[0]);
+  eq(p[0]+' is offered '+p[1],sub&&sub.n,p[1]);
+});
+eq('something already gluten-free is offered nothing',ctx.glutenFreeSub('Rice noodles'),null);
+eq('nor is a plain vegetable',ctx.glutenFreeSub('Carrot'),null);
+
+console.log('-- every substitute is actually gluten-free --');
+{
+  const bad=[];
+  R.forEach(function(r){r.ing.forEach(function(i){
+    (i.swaps||[]).forEach(function(sw){
+      if(/gluten-free|tamari|rice noodle|rice vermicelli|buckwheat soba|corn tortilla|quinoa/i.test(sw.n)
+         && ctx.violatesBase('gf',sw.n)) bad.push(r.t+': '+sw.n);
+    })})});
+  eq('no substitute is itself made of wheat',bad,[]);
+}
+
+console.log('-- the amount carries over --');
+{
+  const off=[];
+  R.forEach(function(r){r.ing.forEach(function(i){
+    if(!ctx.violatesBase('gf',i.n)) return;
+    (i.swaps||[]).forEach(function(sw){
+      if(/^Gluten-free|^Tamari$|^Rice noodles$/.test(sw.n)&&sw.amt!==i.amt&&!/penne|rolls/i.test(sw.n))
+        off.push(r.t+': '+i.n+' '+i.amt+' -> '+sw.n+' '+sw.amt);
+    })})});
+  eq('a like-for-like swap keeps the same quantity',off.slice(0,3),[]);
+}
+
+console.log('-- how much of the catalogue a coeliac can reach --');
+{
+  const ok=R.filter(function(r){return ctx.dietStatus(r,'gf').ok}).length;
+  const fixable=R.filter(function(r){return ctx.dietStatus(r,'gf').fixable}).length;
+  const shut=R.length-ok-fixable;
+  eq('most of it is reachable one way or another',ok+fixable>R.length*0.9,true);
+  eq('and very little is shut out',shut<25,true);
+  eq('the sums add up',ok+fixable+shut,R.length);
+}
+
+console.log('-- what stays shut out, stays shut out honestly --');
+// A gluten-free dumpling wrapper is not a dumpling wrapper, and seitan is
+// gluten by definition. These are not offered a substitute that would quietly
+// turn the dish into something else.
+['Wonton wrappers','Gyoza wrappers','Dumpling wrappers','Seitan','Phyllo pastry']
+  .forEach(function(n){
+    eq('no pretend substitute for '+n,ctx.glutenFreeSub(n),null);
+  });
+
+console.log('-- a core ingredient can still be swapped --');
+// status() has always counted swaps on core ingredients toward fixable, but the
+// screen rendered core as a dead row, so it could promise a fix it would not
+// let you make.
+{
+  const carb=R.find(function(r){return r.t==='Spaghetti carbonara'});
+  const pasta=carb.ing[carb.ing.findIndex(function(i){return /spaghetti/i.test(i.n)})];
+  eq('the pasta is still core',pasta.core,true);
+  eq('and it has a way out',(pasta.swaps||[]).length>0,true);
+  S('openSwap',{rid:carb.id,idx:carb.ing.indexOf(pasta)});
+  const h=ctx.ingTabHtml(carb);
+  eq('the row is offered as swappable',/ing-row swappable/.test(h),true);
+  eq('the substitute is on screen',/Gluten-free spaghetti/.test(h),true);
+  eq('and there is a button to apply it',/applySwap\(/.test(h),true);
+  S('openSwap',{});
+}
+{
+  const carb=R.find(function(r){return r.t==='Spaghetti carbonara'});
+  eq('so carbonara is one swap from gluten-free',ctx.dietStatus(carb,'gf').fixable,true);
+  eq('but never claimed to be gluten-free as written',ctx.dietStatus(carb,'gf').ok,false);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exitCode=fail?1:0;
