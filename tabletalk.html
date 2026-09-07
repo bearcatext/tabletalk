@@ -8384,8 +8384,8 @@ function renderWho(){
   let body;
   if(v==='pin'){
     const p=profileById(whoView.target)||{name:'',fl:'',id:''};
-    body='<div class="who-head">'+p.fl+' '+esc(p.name)+'</div>'
-      +'<p class="who-sub">Enter their PIN to switch.</p>'
+    body='<div class="who-head">'+p.fl+' Welcome back, '+esc(p.name)+'</div>'
+      +'<p class="who-sub">Your PIN, and your kitchen is where you left it.</p>'
       +'<input class="who-in" id="who-pin" type="tel" inputmode="numeric" autocomplete="off" placeholder="PIN">'
       +err
       +'<button class="who-go" onclick="whoDoSwitch(\''+p.id+'\')">Unlock</button>'
