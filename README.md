@@ -101,10 +101,13 @@ Evan Funke’s four, and every pasta dish in the catalogue follows them:
 node tools/pasta.js
 ```
 
-Dishes where the pasta cooks in the pot it is served from — pasta e fagioli,
-pasta e ceci — are exempt from all but the second. There is no separate water to
-salt, nothing is drained, and the starch goes straight into the dish. Lasagne is
-exempt too: the sheets never see a pot.
+Nothing is exempt. What changes between dishes is the mechanism, not whether a
+rule applies:
+
+- **The water** is whatever liquid the pasta cooks in — a pot of it, the broth
+  of a pasta e fagioli, or the ragu and bechamel a dry lasagne sheet swells into.
+- **Stop it short** is satisfied by finishing in a pan, by resting off the heat,
+  or by going into the oven still chalky.
 
 ## Still to build
 
