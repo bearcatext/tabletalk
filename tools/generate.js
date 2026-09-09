@@ -101,27 +101,10 @@ function callAnthropic(body) {
   });
 }
 
-const INGREDIENT = { type: 'object', properties: {
-  n: { type: 'string' }, amt: { type: 'string' },
-  emoji: { type: 'string', description: 'One food emoji.' },
-  core: { type: 'boolean', description: 'True if the dish cannot be made without it.' },
-  swaps: { type: 'array', description: 'Required when core is false. Empty when core is true.',
-    items: { type: 'object', properties: {
-      n: { type: 'string' }, amt: { type: 'string' }, note: { type: 'string' },
-    }, required: ['n', 'amt', 'note'], additionalProperties: false } },
-}, required: ['n', 'amt', 'emoji', 'core', 'swaps'], additionalProperties: false };
-const STEP = { type: 'object', properties: {
-  t: { type: 'string' }, s: { type: 'string' }, tip: { type: 'string' },
-}, required: ['t', 's', 'tip'], additionalProperties: false };
-const RECIPE_SCHEMA = { type: 'object', properties: {
-  recipes: { type: 'array', items: { type: 'object', properties: {
-    e: { type: 'string' }, t: { type: 'string' }, c: { type: 'string' },
-    mins: { type: 'integer' }, cals: { type: 'integer' }, rating: { type: 'number' },
-    desc: { type: 'string', description: 'One line, under 90 characters.' },
-    ing: { type: 'array', items: INGREDIENT }, steps: { type: 'array', items: STEP },
-  }, required: ['e', 't', 'c', 'mins', 'cals', 'rating', 'desc', 'ing', 'steps'],
-     additionalProperties: false } },
-}, required: ['recipes'], additionalProperties: false };
+// The same schema the proxy sends. Kept in one file because it was kept in two:
+// with the field descriptions stripped, "c" reached the model as an unlabelled
+// letter and came back as "Noodles".
+const { RECIPE_SCHEMA } = require('./recipe-schema.js');
 
 (async () => {
   const prompt = ctx.generatePrompt(cuisine, null)
