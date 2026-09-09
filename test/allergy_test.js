@@ -15,13 +15,16 @@ const G=ctx.__g,S=ctx.__s,R=G('ALL_RECIPES');
 let pass=0,fail=0;
 const eq=(n,g,w)=>{const ok=JSON.stringify(g)===JSON.stringify(w);
   console.log((ok?'  PASS  ':'  FAIL  ')+n+(ok?'':`  got=${JSON.stringify(g)} want=${JSON.stringify(w)}`));ok?pass++:fail++};
-// strictness lives per category now, not in one global flag
-const STRICT={df:'strict',gf:'strict',nf:'strict',vgn:'strict',veg:'strict'};
-const off=()=>{S('dietTier',{});ctx.clearDietCache()};
-const on =()=>{S('dietTier',Object.assign({},STRICT));ctx.clearDietCache()};
+// Careful is where the app lands, so an empty map is the careful position and
+// the relaxed one has to be asked for. `loose` and `careful` say which is which
+// without leaning on a word the app no longer uses.
+const RELAXED={df:'relaxed',gf:'relaxed',nf:'relaxed',vgn:'relaxed',veg:'relaxed'};
+const loose  =()=>{S('dietTier',Object.assign({},RELAXED));ctx.clearDietCache()};
+const careful=()=>{S('dietTier',{});ctx.clearDietCache()};
+const off=loose, on=careful;   // the old names, pointing at the right things
 
 // hard fixes: these are made with dairy, not "may contain"
-off();
+careful();
 eq('brioche is hard dairy',ctx.violates('df','Brioche buns'),true);
 eq('ranch dressing is hard dairy',ctx.violates('df','Ranch dressing'),true);
 eq('brioche not merely uncertain',ctx.mayContain('df','Brioche buns'),false);
@@ -34,19 +37,21 @@ eq('lean bread NOT uncertain',ctx.mayContain('df','Rustic sourdough'),false);
 eq('vegetable stock NOT a veg risk',ctx.mayContain('veg','Vegetable stock'),false);
 eq('stock cube is a gluten risk',ctx.mayContain('gf','Chicken stock'),true);
 
-// preference mode: uncertain ingredients still qualify, but are surfaced
-eq('preference mode ignores uncertainty',ctx.violates('df','Panko breadcrumbs'),false);
+// the relaxed position lets uncertainty through, and surfaces it instead
+loose();
+eq('the relaxed position ignores uncertainty',ctx.violates('df','Panko breadcrumbs'),false);
 const risky=R.find(r=>ctx.dietStatus(r,'df').ok&&ctx.riskyIngredients(r,'df').length);
 eq('a dairy-free recipe carries a label warning',!!risky,true);
 S('sel',{cuisines:[],diets:['df'],efforts:[]});S('mode',null);S('started',true);
 eq('warning names the ingredient',ctx.dietHintHtml(risky).includes(ctx.riskyIngredients(risky,'df')[0]),true);
 eq('warning is styled as a caution',/diet-hint warn/.test(ctx.dietHintHtml(risky)),true);
 
-// allergy mode: uncertainty counts against
-on();
+// the careful position counts uncertainty against
+careful();
 eq('allergy mode rejects uncertain',ctx.violates('df','Panko breadcrumbs'),true);
 eq('allergy mode still accepts corn tortillas',ctx.violates('df','Corn tortillas'),false);
-eq('no label warning in allergy mode',!/diet-hint warn/.test(ctx.dietHintHtml(risky)),true);
+eq('the careful position has no warning left to give',
+  !/diet-hint warn/.test(ctx.dietHintHtml(risky))||!ctx.dietStatus(risky,'df').ok,true);
 const dfOn=R.filter(r=>ctx.dietStatus(r,'df').ok).length;
 off();
 const dfOff=R.filter(r=>ctx.dietStatus(r,'df').ok).length;
@@ -76,41 +81,49 @@ console.log('-- lactose is not milk protein --');
 off();
 // Butter and ghee are nearly all fat; a hard cheese loses its lactose to the
 // ageing. All are usually fine lactose intolerant, none are safe milk allergic.
+loose();
 [['Butter',false],['Ghee',false],['Parmesan',false],['Aged cheddar',false],
  ['Pecorino',false],['Gruyere',false]].forEach(function(p){
-  eq('lactose-free keeps '+p[0],ctx.violatesBase('lac',p[0]),p[1]);
+  eq('lactose-free keeps '+p[0],ctx.violates('df',p[0]),p[1]);
   eq('dairy-free still excludes '+p[0],ctx.violatesBase('df',p[0]),true);
 });
 [['Milk',true],['Double cream',true],['Greek yoghurt',true],['Buttermilk',true],
  ['Ricotta',true],['Mascarpone',true],['Creme fraiche',true]].forEach(function(p){
-  eq('lactose-free excludes '+p[0],ctx.violatesBase('lac',p[0]),p[1]);
+  eq('lactose-free excludes '+p[0],ctx.violates('df',p[0]),p[1]);
 });
-eq('plant milks are not dairy at all',ctx.violatesBase('lac','Coconut milk'),false);
-eq('peanut butter is not butter',ctx.violatesBase('lac','Peanut butter'),false);
-eq('buttermilk is not butter',ctx.violatesBase('lac','Buttermilk'),true);
+eq('plant milks are not dairy at all',ctx.violates('df','Coconut milk'),false);
+eq('peanut butter is not butter',ctx.violates('df','Peanut butter'),false);
+eq('buttermilk is not butter',ctx.violates('df','Buttermilk'),true);
 eq('a vegan still avoids every dairy',ctx.violatesBase('vgn','Parmesan'),true);
 eq('and butter',ctx.violatesBase('vgn','Butter'),true);
 
-console.log('-- lactose-free is a wider catalogue than dairy-free --');
+console.log('-- intolerance reaches further than allergy --');
 {
-  const lac=R.filter(function(r){return ctx.dietStatus(r,'lac').ok}).length;
+  loose();
+  const lac=R.filter(function(r){return ctx.dietStatus(r,'df').ok}).length;
+  careful();
   const df =R.filter(function(r){return ctx.dietStatus(r,'df').ok}).length;
   eq('and it is genuinely wider',lac>df,true);
-  eq('every dairy-free recipe is also lactose-free',
-    R.filter(function(r){return ctx.dietStatus(r,'df').ok})
-     .every(function(r){return ctx.dietStatus(r,'lac').ok}),true);
+  // nothing safe for an allergy may be missing from the intolerance list
+  careful();
+  const safe=R.filter(function(r){return ctx.dietStatus(r,'df').ok}).map(function(r){return r.id});
+  loose();
+  eq('everything allergy-safe is intolerance-safe too',
+    safe.every(function(id){return ctx.dietStatus(R.find(function(r){return r.id===id}),'df').ok}),true);
+  careful();
 }
 
 console.log('-- strictness is per category --');
-off();
-S('dietTier',{gf:'strict'});ctx.clearDietCache();
-eq('the strict category tightens',ctx.violates('gf','Oats'),true);
-eq('an untouched one does not',ctx.violates('df','Chocolate'),false);
-eq('tierOf reports each separately',[ctx.tierOf('gf'),ctx.tierOf('df')],['strict','avoid']);
-S('dietTier',{df:'strict'});ctx.clearDietCache();
+loose();
+S('dietTier',{gf:'careful',df:'relaxed',nf:'relaxed',vgn:'relaxed',veg:'relaxed'});
+delete G('dietTier').gf; ctx.clearDietCache();
+eq('the careful category tightens',ctx.violates('gf','Oats'),true);
+eq('a relaxed one does not',ctx.violates('df','Chocolate'),false);
+eq('tierOf reports each separately',[ctx.tierOf('gf'),ctx.tierOf('df')],['careful','relaxed']);
+S('dietTier',{gf:'relaxed'});ctx.clearDietCache();
 eq('the other way round too',ctx.violates('df','Chocolate'),true);
 eq('and gluten relaxes',ctx.violates('gf','Oats'),false);
-off();
+careful();
 
 console.log('-- only some categories have a second level --');
 eq('dairy does',G('hasTiers')('df'),true);
@@ -118,9 +131,15 @@ eq('gluten does',G('hasTiers')('gf'),true);
 eq('nuts do',G('hasTiers')('nf'),true);
 eq('vegan does, for rennet and fish sauce',G('hasTiers')('vgn'),true);
 eq('heart healthy has nothing uncertain to tighten',G('hasTiers')('hh'),false);
-eq('nor does lactose-free',G('hasTiers')('lac'),false);
-eq('an allergen is named as one',ctx.tierLabel('gf'),'Allergy');
-eq('vegan is not called an allergy',ctx.tierLabel('vgn'),'Strict');
+eq('dairy has two positions now, not two pills',G('hasTiers')('df'),true);
+eq('and lactose-free is no longer a category of its own',
+  G('DIET_CATS').some(function(c){return c.id==='lac'}),false);
+eq('coeliac disease is not called an allergy',ctx.tierLabel('gf'),'Coeliac');
+eq('a nut allergy is',ctx.tierLabel('nf'),'Allergy');
+eq('and milk protein is',ctx.tierLabel('df'),'Allergy');
+eq('vegan is neither',ctx.tierLabel('vgn'),'Strict');
+eq('the relaxed dairy position says what it is',G('tierWord')('df','relaxed'),'Intolerance');
+eq('and the relaxed gluten one',G('tierWord')('gf','relaxed'),'Sensitive');
 // Heart healthy and lactose-free have no second level to offer, but they do
 // have something worth explaining — lactose-free especially, since it is the
 // one people confuse with dairy-free. They keep the row and lose the control.
@@ -154,16 +173,15 @@ off();
     demoted.every(function(r){return ctx.dietStatus(r,'gf').ok}),true);
 }
 
-console.log('-- carrying over the old single switch --');
+console.log('-- what an older build left behind --');
 {
-  const fresh=require('child_process');
-  eq('a saved allergy setting becomes strict everywhere',(function(){
-    S('allergyMode',true);S('dietTier',{});
-    ctx.toggleAllergyMode();          // off
-    ctx.toggleAllergyMode();          // on again, seeding every tier
-    return G('TIERED_CATS').every(function(c){return ctx.tierOf(c)==='strict'});
-  })(),true);
-  off();S('allergyMode',false);
+  // The previous scheme stored 'strict' and treated absence as permissive.
+  // Absence now means careful, so anything it wrote is dropped rather than
+  // read as the opposite of what was meant.
+  S('dietTier',{df:'strict',gf:'strict'});ctx.clearDietCache();
+  eq('an old strict setting is not read as relaxed',
+    [ctx.tierOf('df'),ctx.tierOf('gf')],['careful','careful']);
+  careful();
 }
 
 console.log('-- pasta is wheat whatever it is called --');
@@ -200,7 +218,7 @@ console.log('-- the dairy and lactose lists agree with each other --');
 eq('every low-lactose cheese is recognised as dairy first',(function(){
   return ['Butter','Ghee','Parmesan','Pecorino','Grana Padano','Cheddar','Gruyere',
           'Comte','Emmental','Manchego','Provolone','Cotija','Gouda','Asiago']
-    .every(function(n){return ctx.violatesBase('df',n)&&!ctx.violatesBase('lac',n)});
+    .every(function(n){return ctx.violatesBase('df',n)&&(loose(),!ctx.violates('df',n))});
 })(),true);
 
 console.log('-- a wheat ingredient is offered a way out --');

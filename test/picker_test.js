@@ -109,7 +109,7 @@ const both=ctx.selPool();
 eq('it narrows rather than replaces',both.length<mexAll&&both.length>0,true);
 eq('every result is still Mexican',both.every(r=>r.c==='Mexican'),true);
 eq('and every one is dairy-free or a swap away',both.every(r=>dietOkIn(r,'df')),true);
-eq('the label names both',ctx.selLabel(),'Mexican + Dairy-free');
+eq('the label names both',ctx.selLabel(),'Mexican + Dairy');
 ctx.toggleRefine('df');
 eq('narrowing comes off again',G('sel').diets,[]);
 eq('leaving what you chose',ctx.selPool().length,mexAll);

@@ -5343,14 +5343,33 @@ const TIERED_CATS=['df','gf','nf','vgn','veg'];
 const ALLERGEN_CATS=['df','gf','nf'];
 const hasTiers=c=>TIERED_CATS.indexOf(c)>=0;
 const isAllergen=c=>ALLERGEN_CATS.indexOf(c)>=0;
-let dietTier=JSON.parse(LS.getItem('dw_tiers')||'{}');
-// carried over from the single switch this replaces
+// Each of these has two positions, and the careful one is where you land. A
+// coeliac who taps Gluten and changes nothing gets the list that was safe
+// before they had to notice a control; someone avoiding gluten by preference
+// opts into the wider one deliberately. The error points the safe way.
+//
+// Only the relaxed choice is stored, so absent means careful. Anything written
+// by the older scheme, where absent meant permissive, is dropped on the way in.
+let dietTier=(function(){
+  let saved={};
+  try{ saved=JSON.parse(LS.getItem('dw_tiers')||'{}') }catch(e){ saved={} }
+  const out={};
+  Object.keys(saved).forEach(k=>{ if(saved[k]==='relaxed') out[k]='relaxed' });
+  return out;
+})();
 let allergyMode=JSON.parse(LS.getItem('dw_allergy')||'false');
-if(allergyMode&&!Object.keys(dietTier).length){
-  TIERED_CATS.forEach(c=>{dietTier[c]='strict'});
-}
-function tierOf(cat){return dietTier[cat]==='strict'?'strict':'avoid'}
-function tierLabel(cat){return isAllergen(cat)?'Allergy':'Strict'}
+function tierOf(cat){return dietTier[cat]==='relaxed'?'relaxed':'careful'}
+// Real words, per category. Coeliac disease is autoimmune rather than an
+// allergy, and nobody is intolerant to being vegetarian.
+const TIER_WORDS={
+  df: {careful:'Allergy',  relaxed:'Intolerance'},
+  gf: {careful:'Coeliac',  relaxed:'Sensitive'},
+  nf: {careful:'Allergy',  relaxed:'Avoiding'},
+  vgn:{careful:'Strict',   relaxed:'Avoiding'},
+  veg:{careful:'Strict',   relaxed:'Avoiding'},
+};
+function tierWord(cat,which){return (TIER_WORDS[cat]||{})[which]||which}
+function tierLabel(cat){return tierWord(cat,'careful')}
 let plan=new Set(JSON.parse(LS.getItem('dw_plan')||'[]'));
 let planNotice=null;
 let qrOpen=false;
@@ -5657,13 +5676,21 @@ const OMISSION = /^(omit|skip|none|no\b|without)/i;
 
 const norm = (s) => String(s || '').toLowerCase().trim();
 
+// Whey and water carry the lactose; fat and ageing take it away. Butter, ghee
+// and an aged hard cheese keep almost none, which is why they are fine for
+// intolerance and never fine for an allergy. Milk is the opposite end of the
+// same scale, not the same side as the cheese.
+function lactoseBearing(name){
+  const n=norm(name);
+  if(!n||OMISSION.test(n)) return false;
+  return !PLANT_DAIRY.test(n) && DAIRY.test(n) && !LOW_LACTOSE.test(n);
+}
 function violatesBase(cat, name) {
   const n = norm(name);
   if (!n || OMISSION.test(n)) return false;
   const dairy = () => !PLANT_DAIRY.test(n) && DAIRY.test(n);
   switch (cat) {
     case 'df':  return dairy();
-    case 'lac': return dairy() && !LOW_LACTOSE.test(n);
     case 'gf':  return GLUTEN.test(n) && !GLUTEN_OK.test(n);
     case 'veg': return !ANIMAL_OK.test(n) && (MEAT.test(n) || FISH.test(n));
     case 'vgn': return (!ANIMAL_OK.test(n) && (MEAT.test(n) || FISH.test(n))) || EGG.test(n) || HONEY.test(n) || dairy();
@@ -5691,8 +5718,13 @@ function violatesBase(cat, name) {
 
 // At the stricter level, anything uncertain counts as a violation.
 function violates(cat, name) {
+  const t = tierOf(cat);
+  // Dairy is the one where the position changes what counts, not merely how
+  // much doubt is tolerated: intolerance is about the sugar, allergy about the
+  // protein, and they rule out different foods.
+  if (cat==='df' && t==='relaxed') return lactoseBearing(name);
   if (violatesBase(cat, name)) return true;
-  return tierOf(cat)==='strict' ? mayContain(cat, name) : false;
+  return t==='careful' ? mayContain(cat, name) : false;
 }
 
 const effName = (r, i, applied) => {
@@ -5736,8 +5768,7 @@ function status(r, cat, applied) {
 // Browsable diet categories. These sit alongside the cuisines in the picker.
 const DIET_CATS=[
   {id:'hh', label:'Heart healthy', fl:'💚', short:'heart healthy'},
-  {id:'df', label:'Dairy-free',    fl:'🥛', short:'dairy-free'},
-  {id:'lac',label:'Lactose-free',  fl:'🐄', short:'lactose-free'},
+  {id:'df', label:'Dairy',         fl:'🥛', short:'dairy-free'},
   {id:'gf', label:'Gluten-free',   fl:'🌾', short:'gluten-free'},
   {id:'veg',label:'Vegetarian',    fl:'🥬', short:'vegetarian'},
   {id:'vgn',label:'Vegan',         fl:'🌱', short:'vegan'},
@@ -5759,6 +5790,16 @@ const dietCat=id=>DIET_CATS.find(c=>c.id===id);
 // which is why applySwap() clears this.
 let _dietCache={};
 function clearDietCache(){_dietCache={}}
+// The cache is keyed by position as well as category, so asking at another
+// one costs nothing and leaves the app's own setting alone.
+function dietStatusAt(r,cat,tier){
+  if(!tier||tier===tierOf(cat)) return dietStatus(r,cat);
+  const had=Object.prototype.hasOwnProperty.call(dietTier,cat), was=dietTier[cat];
+  if(tier==='relaxed') dietTier[cat]='relaxed'; else delete dietTier[cat];
+  const out=dietStatus(r,cat);
+  if(had) dietTier[cat]=was; else delete dietTier[cat];
+  return out;
+}
 function dietStatus(r,cat){
   const k=cat+'|'+tierOf(cat)+'|'+r.id;
   if(!(k in _dietCache)) _dietCache[k]=status(r,cat,swaps);
@@ -5785,7 +5826,7 @@ function dietPool(cat){
 
 function setTier(cat,t){
   if(!hasTiers(cat)) return;
-  if(t==='strict') dietTier[cat]='strict'; else delete dietTier[cat];
+  if(t==='relaxed') dietTier[cat]='relaxed'; else delete dietTier[cat];
   clearDietCache();save();
   setShown(pickPage(selPool(),[]));
   renderCuisineRow();renderCards();
@@ -5804,16 +5845,16 @@ function tierRowHtml(cat){
   const tiers=hasTiers(cat);
   const t=tierOf(cat);
   const open=openDietNote===cat;
-  const hint=!tiers?'':(t==='strict'
+  const hint=!tiers?'':(t==='careful'
     ? 'Anything that varies by brand is excluded.'
     : 'Brand-dependent ingredients are still shown, flagged to check.');
   return `<div class="tier-row">
     <span class="tier-lbl">${c.fl} ${c.label}</span>
     ${tiers?`<span class="tier-seg">
-      <button class="tier-b${t==='avoid'?' on':''}" aria-pressed="${t==='avoid'}"
-        onclick="setTier('${cat}','avoid')">Avoiding</button>
-      <button class="tier-b${t==='strict'?' on':''}" aria-pressed="${t==='strict'}"
-        onclick="setTier('${cat}','strict')">${tierLabel(cat)}</button>
+      <button class="tier-b${t==='careful'?' on':''}" aria-pressed="${t==='careful'}"
+        onclick="setTier('${cat}','careful')">${tierWord(cat,'careful')}</button>
+      <button class="tier-b${t==='relaxed'?' on':''}" aria-pressed="${t==='relaxed'}"
+        onclick="setTier('${cat}','relaxed')">${tierWord(cat,'relaxed')}</button>
     </span>`:''}
     <button class="tier-why${open?' on':''}" onclick="toggleDietNote('${cat}')"
       aria-expanded="${open}" aria-label="What ${escAttr(c.label)} means">
@@ -5824,7 +5865,7 @@ function tierRowHtml(cat){
 // kept so a single call still means "treat everything as strict"
 function toggleAllergyMode(){
   allergyMode=!allergyMode;
-  TIERED_CATS.forEach(c=>{ if(allergyMode) dietTier[c]='strict'; else delete dietTier[c] });
+  TIERED_CATS.forEach(c=>{ if(allergyMode) delete dietTier[c]; else dietTier[c]='relaxed' });
   clearDietCache();save();
   if(sel.diets.length) setShown(pickPage(selPool(),[]));
   renderCuisineRow();renderCards();
@@ -5834,8 +5875,7 @@ function dietNote(cat){
   const common='Worked out from the ingredient list — a cooking guide, not medical or allergy advice. Always check labels.';
   const per={
     hh:`<b>Heart healthy</b> means a lean protein — fish and poultry first, then beans, lentils or tofu — with no deep-frying, under ${HH_CALORIE_CAP} cal a serving, and no butter, cream, cheese, coconut milk, red or processed meat.`,
-    df:'<b>Dairy-free</b> excludes milk, butter, cream, cheese and yoghurt. Coconut milk and nut creams count as dairy-free.',
-    lac:'<b>Lactose-free</b> is not the same as dairy-free. It excludes milk, cream, yoghurt and the soft cheeses, and keeps butter, ghee and hard aged cheese such as parmesan and cheddar, which hold little or no lactose. If you react to milk protein rather than the sugar, use Dairy-free set to allergy.',
+    df:'<b>Allergy</b> is about milk protein and excludes every dairy ingredient, plus the breads, crumbs and sauces that carry milk by brand. <b>Intolerance</b> is about the milk sugar: it excludes milk, cream, yoghurt and the soft cheeses, and keeps butter, ghee and aged hard cheese such as parmesan, which hold almost no lactose. They are different conditions, not degrees of one.',
     gf:'<b>Gluten-free</b> excludes wheat, barley and the sauces that usually contain them — soy sauce, hoisin, oyster sauce, miso and gochujang. Tamari counts as gluten-free.',
     veg:'<b>Vegetarian</b> excludes meat and fish, including fish sauce, oyster sauce, anchovy and dashi. Cheese is counted as vegetarian, though some hard cheeses use animal rennet.',
     vgn:'<b>Vegan</b> additionally excludes dairy, egg and honey.',
@@ -5844,13 +5884,18 @@ function dietNote(cat){
   return (per[cat]||'')+' '+common;
 }
 
+// The badge names the standard the recipe actually met.
+function dietShort(cat){
+  if(cat==='df') return tierOf('df')==='relaxed'?'lactose-free':'dairy-free';
+  return (dietCat(cat)||{}).short||'';
+}
 function dietBadgeHtml(r){
   if(r.sharedBy) return `<span class="diet-badge from"><i class="ti ti-gift"></i>from ${esc(r.sharedBy)}</span>`;
   const cat=sel.diets[0];
   if(!cat) return '';
   const c=dietCat(cat), s=dietStatus(r,cat);
-  if(s.ok) return `<span class="diet-badge"><i class="ti ti-circle-check"></i>${c.short}</span>`;
-  if(s.fixable) return `<span class="diet-badge swap"><i class="ti ti-replace"></i>${c.short} with ${s.swapsNeeded} swap${s.swapsNeeded===1?'':'s'}</span>`;
+  if(s.ok) return `<span class="diet-badge"><i class="ti ti-circle-check"></i>${dietShort(cat)}</span>`;
+  if(s.fixable) return `<span class="diet-badge swap"><i class="ti ti-replace"></i>${dietShort(cat)} with ${s.swapsNeeded} swap${s.swapsNeeded===1?'':'s'}</span>`;
   return '';
 }
 
@@ -7188,6 +7233,25 @@ const QUERY_FILLER=new Set([
   'tonight','today','tomorrow','dinner','lunch','breakfast','supper','how','about'
 ]);
 
+// Merging the two dairy pills took "lactose free" out of the search vocabulary,
+// because it stopped being a category name. These are the words people use for
+// themselves, and each one carries the position it implies: somebody typing
+// "lactose free" wants the wider list, somebody typing "milk allergy" does not.
+// Longest first, so "lactose intolerant" is not eaten by "lactose".
+const DIET_PHRASES=[
+  ['lactose intolerant','df','relaxed'],
+  ['lactose free','df','relaxed'],
+  ['lactose','df','relaxed'],
+  ['milk allergy','df','careful'],
+  ['dairy allergy','df','careful'],
+  ['milk protein','df','careful'],
+  ['coeliac','gf','careful'],
+  ['celiac','gf','careful'],
+  ['gluten sensitive','gf','relaxed'],
+  ['gluten intolerant','gf','relaxed'],
+  ['nut allergy','nf','careful'],
+  ['peanut allergy','nf','careful'],
+];
 function searchFilters(q){
   // Hyphens and spaces are interchangeable, so "dairy-free" and "dairy free"
   // both find the category. Plain string matching on a normalised query — no
@@ -7195,6 +7259,14 @@ function searchFilters(q){
   const norm=t=>' '+String(t||'').toLowerCase().replace(/[-\s]+/g,' ').trim()+' ';
   let s=norm(q);
   const cats=[];
+  const tiers={};
+  DIET_PHRASES.forEach(p=>{
+    const nm=norm(p[0]);
+    if(s.indexOf(nm)<0) return;
+    s=s.split(nm).join(' ');
+    if(cats.indexOf(p[1])<0) cats.push(p[1]);
+    if(!(p[1] in tiers)) tiers[p[1]]=p[2];
+  });
   DIET_CATS.forEach(c=>{
     const nm=norm(c.short);
     if(s.indexOf(nm)>=0){cats.push(c.id);s=s.replace(nm,' ')}
@@ -7210,7 +7282,7 @@ function searchFilters(q){
     if(s.indexOf(' '+w+' ')>=0){ahead=true;s=s.split(' '+w+' ').join(' ')}
   });
   const terms=s.split(/[ ,]+/).filter(Boolean).filter(w=>!QUERY_FILLER.has(w));
-  return {cats:cats,quick:quick,easy:easy,ahead:ahead,terms:terms};
+  return {cats:cats,quick:quick,easy:easy,ahead:ahead,terms:terms,tiers:tiers};
 }
 
 // All terms must hit something (AND), but each scores by where it hit, so a
@@ -7226,7 +7298,7 @@ function searchMatches(q){
     if(f.quick&&r.mins>QUICK_MINS) return;
     if(f.easy&&!isEasy(r)) return;
     if(f.ahead&&!hasAhead(r)) return;
-    if(f.cats.some(c=>!dietStatus(r,c).ok)) return;
+    if(f.cats.some(c=>!dietStatusAt(r,c,f.tiers&&f.tiers[c]).ok)) return;
     const title=r.t.toLowerCase();
     const words=title.split(/[^a-z0-9]+/).filter(Boolean);
     const cuisine=r.c.toLowerCase();
@@ -8275,7 +8347,7 @@ function marcoCandidates(q){
     if(f.quick&&r.mins>QUICK_MINS) return;
     if(f.easy&&!isEasy(r)) return;
     if(f.ahead&&!hasAhead(r)) return;
-    if(f.cats.some(c=>!dietStatus(r,c).ok)) return;
+    if(f.cats.some(c=>!dietStatusAt(r,c,f.tiers&&f.tiers[c]).ok)) return;
     const hay=(r.t+' '+r.c+' '+(r.desc||'')+' '+r.ing.map(i=>i.n).join(' ')).toLowerCase();
     const hit=f.terms.filter(t=>hay.indexOf(t)>=0).length;
     if(hit) scored.push({r:r,hit:hit});

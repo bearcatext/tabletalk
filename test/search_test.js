@@ -250,5 +250,37 @@ eq('the last step is never make-ahead',R.every(function(r){
   return !r.steps.length||!r.steps[r.steps.length-1].ahead;}),true);
 eq('the category is worth having',R.filter(function(r){return ctx.hasAhead(r)}).length>50,true);
 
+console.log('-- the words people use for themselves --');
+// Merging the two dairy pills took "lactose free" out of the vocabulary,
+// because it stopped being a category name. Each phrase now carries the
+// position it implies as well as the category.
+{
+  const f=q=>ctx.searchFilters(q);
+  eq('lactose free finds the dairy category',f('lactose free').cats,['df']);
+  eq('and asks for the wider position',f('lactose free').tiers.df,'relaxed');
+  eq('lactose intolerant is not eaten by lactose',f('lactose intolerant').tiers.df,'relaxed');
+  eq('milk allergy asks for the careful one',f('milk allergy').tiers.df,'careful');
+  eq('coeliac finds gluten',f('coeliac').cats,['gf']);
+  eq('and asks carefully',f('coeliac').tiers.gf,'careful');
+  eq('celiac spelt the other way too',f('celiac').cats,['gf']);
+  eq('gluten sensitive asks for the wider one',f('gluten sensitive').tiers.gf,'relaxed');
+  eq('nut allergy finds nuts',f('nut allergy').cats,['nf']);
+  eq('the phrase is consumed, not left as a term',f('lactose free italian').terms,['italian']);
+}
+{
+  // the position the words ask for is the position they are judged at, whatever
+  // the app is currently set to
+  S('dietTier',{});ctx.clearDietCache();
+  const lactose=ctx.searchMatches('lactose free').length;
+  const dairy=ctx.searchMatches('dairy free').length;
+  eq('lactose free reaches further than dairy free',lactose>dairy,true);
+  eq('and neither is empty',lactose>0&&dairy>0,true);
+  eq('asking does not move the app off its own setting',ctx.tierOf('df'),'careful');
+  const coeliac=ctx.searchMatches('coeliac').length;
+  const sensitive=ctx.searchMatches('gluten sensitive').length;
+  eq('coeliac is the narrower gluten answer',coeliac<sensitive,true);
+  eq('and still leaves plenty',coeliac>50,true);
+}
+
 console.log(pass+' passed, '+fail+' failed');
 process.exitCode=fail?1:0;
