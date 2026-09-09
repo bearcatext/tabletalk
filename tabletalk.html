@@ -516,15 +516,22 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
 .pg-sub{font-size:12px;color:var(--ink3);margin-top:4px}
 
 /* ── STRICTNESS PER CATEGORY ── */
-.tier-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:12px;
-  color:var(--ink2);margin:-6px 0 14px}
 .tier-lbl{font-weight:600;color:var(--ink)}
 .tier-seg{display:inline-flex;border:1px solid var(--border2);border-radius:20px;overflow:hidden}
 .tier-b{min-height:34px;padding:0 14px;border:none;background:var(--card);color:var(--ink2);
   font-family:var(--fb);font-size:12px;cursor:pointer;transition:background .15s,color .15s}
 .tier-b+.tier-b{border-left:1px solid var(--border2)}
 .tier-b.on{background:var(--ink);color:var(--chalk);font-weight:500}
-.tier-hint{color:var(--ink3);font-size:11px;flex-basis:100%}
+.tier-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:12px;
+  color:var(--ink2);margin:-2px 0 14px}
+.tier-why{width:30px;height:30px;flex-shrink:0;padding:0;border-radius:50%;
+  border:1px solid var(--border2);background:var(--card);color:var(--ink3);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative}
+.tier-why::after{content:'';position:absolute;top:-8px;bottom:-8px;left:-8px;right:-8px}
+.tier-why:hover{border-color:var(--ink3);color:var(--ink)}
+.tier-why.on{background:var(--ink);border-color:var(--ink);color:var(--chalk)}
+.tier-note{flex-basis:100%;font-size:11.5px;line-height:1.55;color:var(--ink3);
+  background:var(--surface);border-radius:var(--r);padding:10px 12px;margin-top:2px}
 /* ── NARROWING ── */
 .refine{margin:-4px 0 14px}
 .refine-scroll{display:flex;gap:7px;overflow-x:auto;overscroll-behavior-x:contain;
@@ -5783,22 +5790,35 @@ function setTier(cat,t){
   setShown(pickPage(selPool(),[]));
   renderCuisineRow();renderCards();
 }
+// What a category means, and how strictly, are the same subject, so they share
+// a line. The explanation is worth having and not worth 115 pixels of every
+// screen, so it waits behind the question mark.
+let openDietNote=null;
+function toggleDietNote(cat){
+  openDietNote=openDietNote===cat?null:cat;
+  renderCards();
+}
 function tierRowHtml(cat){
-  if(!hasTiers(cat)) return '';
-  const c=dietCat(cat), t=tierOf(cat);
-  const strictWord=tierLabel(cat);
-  const hint=t==='strict'
+  const c=dietCat(cat);
+  if(!c) return '';
+  const tiers=hasTiers(cat);
+  const t=tierOf(cat);
+  const open=openDietNote===cat;
+  const hint=!tiers?'':(t==='strict'
     ? 'Anything that varies by brand is excluded.'
-    : 'Brand-dependent ingredients are still shown, flagged to check.';
+    : 'Brand-dependent ingredients are still shown, flagged to check.');
   return `<div class="tier-row">
-    <span class="tier-lbl">${c.label}</span>
-    <span class="tier-seg">
+    <span class="tier-lbl">${c.fl} ${c.label}</span>
+    ${tiers?`<span class="tier-seg">
       <button class="tier-b${t==='avoid'?' on':''}" aria-pressed="${t==='avoid'}"
         onclick="setTier('${cat}','avoid')">Avoiding</button>
       <button class="tier-b${t==='strict'?' on':''}" aria-pressed="${t==='strict'}"
-        onclick="setTier('${cat}','strict')">${strictWord}</button>
-    </span>
-    <span class="tier-hint">${hint}</span>
+        onclick="setTier('${cat}','strict')">${tierLabel(cat)}</button>
+    </span>`:''}
+    <button class="tier-why${open?' on':''}" onclick="toggleDietNote('${cat}')"
+      aria-expanded="${open}" aria-label="What ${escAttr(c.label)} means">
+      <i class="ti ti-help"></i></button>
+    ${open?`<div class="tier-note">${dietNote(cat)}${hint?' '+hint:''}</div>`:''}
   </div>`;
 }
 // kept so a single call still means "treat everything as strict"
@@ -6071,7 +6091,9 @@ function freshNoticeHtml(){
       <i class="ti ti-rotate"></i>You've seen all ${freshNotice.n} of these — starting the rotation again.
       <button onclick="dismissFreshNotice()" aria-label="Dismiss">×</button></div>`);
   }
-  if(needsReplenish()){
+  // Having just been told the rotation restarted, being told in the next
+  // breath that little is unseen is the same news twice.
+  if(!parts.length&&needsReplenish()){
     const left=unseenIn();
     const hid=selPool().length;
     parts.push(`<div class="fresh-note replenish">
@@ -6748,7 +6770,7 @@ function renderCards(){
     ${pl>(isSearch?SEARCH_MAX:5)?`<button class="shuffle-btn" onclick="cycleFive()"><i class="ti ti-refresh"></i> ${isSearch?'More matches':'5 more options'}</button>`:''}
     ${canGenerate()?`<button class="shuffle-btn" onclick="generateRecipes()" ${generating?'disabled':''}><i class="ti ti-sparkles"></i> ${generating?'Writing…':'New recipes'}</button>`:''}
     </span>
-  </div>${diets.map(d=>`<div class="diet-note">${dietNote(d)}</div>`+tierRowHtml(d)).join('')}${genNoticeHtml()}${shareNoticeHtml()}${freshNoticeHtml()}${hiddenNoticeHtml()}<div class="cards-grid">`;
+  </div>${diets.map(d=>tierRowHtml(d)).join('')}${genNoticeHtml()}${shareNoticeHtml()}${freshNoticeHtml()}${hiddenNoticeHtml()}<div class="cards-grid">`;
   cards.forEach((r,i)=>{
     h+=recipeCardHtml(r,{delay:i*.05,selected:expandedId===r.id});
     if(expandedId===r.id) h+=detailPanelHtml(r);

@@ -121,8 +121,24 @@ eq('heart healthy has nothing uncertain to tighten',G('hasTiers')('hh'),false);
 eq('nor does lactose-free',G('hasTiers')('lac'),false);
 eq('an allergen is named as one',ctx.tierLabel('gf'),'Allergy');
 eq('vegan is not called an allergy',ctx.tierLabel('vgn'),'Strict');
-eq('a category without tiers renders no control',ctx.tierRowHtml('hh'),'');
-eq('one with tiers does',/tier-seg/.test(ctx.tierRowHtml('df')),true);
+// Heart healthy and lactose-free have no second level to offer, but they do
+// have something worth explaining — lactose-free especially, since it is the
+// one people confuse with dairy-free. They keep the row and lose the control.
+eq('a category without tiers offers no strictness',/tier-seg/.test(ctx.tierRowHtml('hh')),false);
+eq('but still explains itself',/tier-why/.test(ctx.tierRowHtml('hh')),true);
+eq('one with tiers offers both',/tier-seg/.test(ctx.tierRowHtml('df')),true);
+eq('the explanation starts folded away',/tier-note/.test(ctx.tierRowHtml('df')),false);
+eq('and opens when asked',(function(){
+  ctx.toggleDietNote('df');
+  const open=/tier-note/.test(ctx.tierRowHtml('df'));
+  ctx.toggleDietNote('df');
+  return open;})(),true);
+eq('only one is open at a time',(function(){
+  ctx.toggleDietNote('df'); ctx.toggleDietNote('gf');
+  const dfShut=!/tier-note/.test(ctx.tierRowHtml('df'));
+  const gfOpen=/tier-note/.test(ctx.tierRowHtml('gf'));
+  ctx.toggleDietNote('gf');
+  return dfShut&&gfOpen;})(),true);
 
 console.log('-- the strictness a recipe was judged at is not cached over --');
 off();
