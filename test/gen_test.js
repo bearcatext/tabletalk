@@ -102,6 +102,20 @@ console.log('-- the file reads the same way to every tool --');
   eq('no entry is written in the other style',jsonStyle,0);
   eq('and the verifier can see every recipe the app loads',
     houseStyle,G('ALL_RECIPES').filter(function(r){return !r.own&&!r.sharedBy}).length);
+
+  // The workflow counts what was added by grepping the diff for the same
+  // shape. It was still looking for the JSON one, so every pull request the
+  // scheduled job opened would have been titled "New recipes: 0". Two
+  // consumers have now been broken by this format in turn, which is enough to
+  // make it something a test holds rather than something someone notices.
+  const wf=require('fs').readFileSync(
+    require('path').join(__dirname,'..','.github','workflows','recipes.yml'),'utf8');
+  const grep=(wf.match(/grep -c '\^\+([^']*)'/)||[])[1];
+  eq('the workflow greps for the style the generator writes',
+    !!grep&&/\{id:/.test(grep),true);
+  eq('and that pattern actually matches a catalogue line',
+    grep?new RegExp('^'+grep.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'))
+      .test('  {id:1,e:"x"'):false,true);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -19,6 +19,7 @@
 const fs = require('fs');
 const https = require('https');
 const path = require('path');
+const calories = require('./calories.js');
 
 const APP = path.join(__dirname, '..', 'tabletalk.html');
 const MODEL = 'claude-opus-5';
@@ -132,19 +133,33 @@ const { RECIPE_SCHEMA } = require('./recipe-schema.js');
   catch (e) { console.error('the reply was not JSON'); process.exit(1); }
 
   // ── the app's own validator decides ───────────────────────────────────────
-  const accepted = [], rejected = [];
+  const accepted = [], rejected = [], warnings = [];
   (parsed.recipes || []).forEach(o => {
     const v = ctx.validateGenerated(o, cuisine);
     if (!v.ok) { rejected.push(`${(o && o.t) || 'untitled'} — ${v.why}`); return; }
+    // Validation checks the shape of a recipe, and a calorie figure is the
+    // right shape whatever it says. Three recipes arrived with figures roughly
+    // double what their own ingredients came to, and every check we had passed
+    // them. This one does arithmetic instead.
+    const cal = calories.check(o);
+    if (!cal.ok) { rejected.push(`${o.t} — ${cal.why}`); return; }
     const r = ctx.normaliseGenerated(o, ctx.nextRecipeId());
     delete r.gen;                       // it is joining the catalogue, not a session
     RECIPES.push(r);                    // so nextRecipeId and duplicate checks see it
     accepted.push(r);
+    if (cal.level === 'warn') warnings.push(`${r.id} ${r.t} — ${cal.why}`);
   });
 
   console.log(`\naccepted ${accepted.length}, rejected ${rejected.length}`);
   accepted.forEach(r => console.log(`  + ${r.id}  ${r.t}  (${r.mins} min, ${r.cals} cal, ${r.ing.length} ing)`));
   rejected.forEach(m => console.log(`  - ${m}`));
+  if (warnings.length) {
+    // Not a verdict — something for whoever reads the pull request. The
+    // estimate does not know about bones, shells or trimming, so it is wrong
+    // often enough that it must not be allowed to throw work away this close in.
+    console.log('\ncalories worth a second look:');
+    warnings.forEach(m => console.log(`  ? ${m}`));
+  }
 
   if (!accepted.length) { console.log('\nnothing to write'); process.exit(rejected.length ? 1 : 0); }
   if (DRY) { console.log('\ndry run — nothing written'); process.exit(0); }

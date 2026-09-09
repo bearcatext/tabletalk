@@ -17,7 +17,7 @@ if (!fs.existsSync(APP)) {
 }
 
 const SUITES = ['test', 'picker_test', 'profile_test', 'share_test', 'dom_test', 'secrets_test', 'schema_test', 'stream_test', 'proxy_test', 'gen_test', 'fresh_test', 'marco_test',
-  'diet2_test', 'allergy_test', 'plan_test', 'own_test', 'qr_test', 'search_test'];
+  'diet2_test', 'allergy_test', 'plan_test', 'own_test', 'qr_test', 'search_test', 'calorie_test'];
 
 const run = f => execFileSync(process.execPath, [path.join(__dirname, f), APP],
   {encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']});

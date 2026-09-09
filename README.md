@@ -54,8 +54,10 @@ Pick meals with the basket button, open **Plan**, then:
 ```
 tabletalk.html     the entire app — markup, styles, data, logic
 marco-proxy.js     local Claude proxy; holds the API key, loopback only
-test/              12 suites, ~347 assertions
+test/              19 suites, ~1,040 assertions
 tools/verify.js    recipe catalogue checker (counts, duplicates, cuisine mismatches)
+tools/calories.js  second opinion on a calorie figure, from the ingredients up
+tools/pasta.js     every pasta dish against Funke's four rules
 ```
 
 ## Tests
@@ -126,8 +128,26 @@ recipes the app quietly rejects.
 
 `.github/workflows/recipes.yml` runs it every Monday, puts the result through
 every check the catalogue has, and **opens a pull request rather than pushing**.
-Two things no check can judge: whether the calorie estimate is right, which
-decides heart-healthy membership, and whether the recipe is any good.
+
+### What the checks reach, and what they do not
+
+The generated recipes were real dishes with the right names, the right
+structure and the house spelling. What they got wrong was cooking: garlic into
+bare caramel with no fat in the pan, 400g of pork seared "in one layer", a
+dipping sauce at two parts fish sauce to four parts lime, and calorie figures
+close to double what the ingredients came to. **Every automated check passed
+all four**, because validation reads shape and all four were the right shape.
+
+`tools/calories.js` closes the one of those that arithmetic can reach. It adds
+up the ingredient list and refuses a figure three times out from the total,
+warning in the middle ground rather than blocking — it knows nothing about
+bones, shells or trimming, so it has to be allowed to be wrong. Calibrated
+against the 284 hand-written recipes it sits at a median of 0.93 and objects to
+seven of them. Being straight about the limit: of the two bad figures that
+prompted it, it would have warned on one and let the other through at 1.50.
+
+Heat, ratios and batch sizes are now spelled out in the generation prompt, with
+the specific mistakes named. That is a prompt, not a check — **read the diff**.
 
 ## House rules for pasta
 
