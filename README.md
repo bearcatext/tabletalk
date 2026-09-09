@@ -86,6 +86,49 @@ node test/search_test.js
 node test/run.js some-other-build.html
 ```
 
+## The API key
+
+One key, two places, and never in a file.
+
+Make it at [console.anthropic.com](https://console.anthropic.com) under API
+keys. Then:
+
+- **For Marco, locally.** Put it in your shell, not in a file:
+
+  ```bash
+  export ANTHROPIC_API_KEY="sk-ant-..."   # PowerShell: $env:ANTHROPIC_API_KEY = "..."
+  node marco-proxy.js
+  ```
+
+- **For the weekly recipes.** GitHub → Settings → Secrets and variables →
+  Actions → New repository secret, named `ANTHROPIC_API_KEY`.
+
+It never goes in `tabletalk.html`, never in a committed file, and never in a
+message to anyone. **This repository is public**, and bots scrape public
+repositories for keys within minutes of a push. `test/secrets_test.js` reads
+every tracked file on every test run and fails the suite if anything shaped
+like a credential appears.
+
+If a key is ever exposed, revoke it in the console first and worry about the
+git history second — rewriting history does not un-scrape it.
+
+## Writing recipes
+
+```bash
+node tools/generate.js --thinnest --dry-run   # see what it would write
+node tools/generate.js --cuisine Korean --count 3
+```
+
+The prompt, the schema and the validation all come from `tabletalk.html`
+itself, loaded the way the test suites load it. A generator carrying its own
+copy of the rules drifts away from the app within a month and then writes
+recipes the app quietly rejects.
+
+`.github/workflows/recipes.yml` runs it every Monday, puts the result through
+every check the catalogue has, and **opens a pull request rather than pushing**.
+Two things no check can judge: whether the calorie estimate is right, which
+decides heart-healthy membership, and whether the recipe is any good.
+
 ## House rules for pasta
 
 Evan Funke’s four, and every pasta dish in the catalogue follows them:
