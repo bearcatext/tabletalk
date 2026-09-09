@@ -150,8 +150,33 @@ const { RECIPE_SCHEMA } = require('./recipe-schema.js');
   if (DRY) { console.log('\ndry run — nothing written'); process.exit(0); }
 
   // ── write them into the catalogue ─────────────────────────────────────────
-  const lines = accepted.map(r => '  ' + JSON.stringify(r)
-    .replace(/^\{/, '{').replace(/\}$/, '},'));
+  // JSON.stringify quotes its keys. Every other entry in the catalogue does
+  // not, and tools/verify.js reads the file with a regex that expects the house
+  // style — so three recipes written the JSON way were invisible to it, and it
+  // went on reporting a next free id that was already taken.
+  const str = s => JSON.stringify(String(s));
+  const kv = o => Object.keys(o).map(k => k + ':' +
+    (typeof o[k] === 'number' ? o[k] :
+     typeof o[k] === 'boolean' ? o[k] : str(o[k]))).join(',');
+  const line = r => {
+    const head = `  {id:${r.id},e:${str(r.e)},t:${str(r.t)},c:${str(r.c)},` +
+      `mins:${r.mins},cals:${r.cals},rating:${r.rating},serves:${r.serves},desc:${str(r.desc)},`;
+    const ing = r.ing.map(i => {
+      const base = `{n:${str(i.n)},amt:${str(i.amt)},emoji:${str(i.emoji)},core:${!!i.core}`;
+      const sw = (i.swaps || []).length
+        ? ',swaps:[' + i.swaps.map(s => '{' + kv({ n: s.n, amt: s.amt, note: s.note }) + '}').join(',') + ']'
+        : '';
+      return '     ' + base + sw + '}';
+    }).join(',' + '\n');
+    const steps = r.steps.map(s => {
+      const o = { t: s.t, s: s.s };
+      if (s.tip) o.tip = s.tip;
+      const tail = s.ahead ? ',ahead:true' : '';
+      return '     {' + kv(o) + tail + '}';
+    }).join(',' + '\n');
+    return head + '\n   ing:[\n' + ing + ',\n   ],\n   steps:[\n' + steps + ',\n   ]},';
+  };
+  const lines = accepted.map(line);
   let src = fs.readFileSync(APP, 'utf8');
   const anchor = '\nconst CUISINES=[';
   const close = src.lastIndexOf('];', src.indexOf(anchor));

@@ -11,8 +11,19 @@ const ctx={localStorage:{getItem:k=>store[k]??null,setItem:(k,v)=>store[k]=Strin
   document:{getElementById:stub,querySelectorAll:()=>[],addEventListener(){},body:{style:{}},
     createElement:()=>({getContext:()=>({font:'',measureText:()=>({width:20})})})},
   window:{},console:{log(){},warn(){},error(){}},setTimeout:(f)=>{f&&f();return 0},
+  // The proxy streams chat replies now, so the stub does too — in several
+  // pieces, because arriving whole is the one case that cannot go wrong.
+  TextDecoder:class{decode(v){return typeof v==='string'?v:String(v)}},
   fetch:(url,opt)=>{sent=JSON.parse(opt.body);
-    return Promise.resolve({ok:true,json:async()=>({content:[{type:'text',text:JSON.stringify({text:'Reply '+(sent.messages.filter(m=>m.role==='user').length),recipe_ids:[1]})}],usage:{}})})}};
+    const reply={text:'Reply '+(sent.messages.filter(m=>m.role==='user').length),recipe_ids:[1]};
+    const frames=[];
+    const words=reply.text.split(' ');
+    words.forEach((w,i)=>frames.push('data: '+JSON.stringify({d:(i?' ':'')+w})+'\n\n'));
+    frames.push('data: '+JSON.stringify({end:reply})+'\n\n');
+    let i=0;
+    return Promise.resolve({ok:true,body:{getReader:()=>({
+      read:async()=>i<frames.length?{value:frames[i++],done:false}:{value:undefined,done:true}
+    })}})}};
 ctx.globalThis=ctx;vm.createContext(ctx);new vm.Script(code).runInContext(ctx);
 const G=ctx.__g,S=ctx.__s;
 let pass=0,fail=0;
@@ -200,6 +211,50 @@ eq('and clicking opens it in Discover',/jumpToRecipe/.test(html),true);
   eq('the offline path no longer tells a stranger to run a server',(function(){
     const src=fs.readFileSync(APP,'utf8');
     return src.indexOf('marcoLocalAnswer(q)')>0;})(),true);
+
+  console.log('-- the reply appears while it is still arriving --');
+  {
+    S('marcoHistory',[]);
+    // watch what the screen holds at each packet rather than only at the end
+    const seenOnScreen=[];
+    const realRender=ctx.renderMarco;
+    ctx.renderMarco=function(){
+      const last=G('marcoHistory')[G('marcoHistory').length-1];
+      if(last&&last.role==='assistant') seenOnScreen.push(last.text);
+      return realRender.apply(null,arguments);
+    };
+    await ask('what can I make with eggs');
+    ctx.renderMarco=realRender;
+    eq('the bubble was drawn more than once',seenOnScreen.length>1,true);
+    eq('and it grew rather than appearing whole',
+      seenOnScreen[0].length<seenOnScreen[seenOnScreen.length-1].length,true);
+    eq('each draw builds on the last',
+      seenOnScreen.every(function(t,n){return n===0||t.indexOf(seenOnScreen[n-1])===0}),true);
+    eq('the finished reply is what was asked for',G('marcoHistory')[1].text,'Reply 1');
+    eq('and it is no longer marked as arriving',G('marcoHistory')[1].streaming,undefined);
+    eq('the typing dots were put away',G('marcoPending'),false);
+  }
+
+  console.log('-- a reply that stops halfway --');
+  {
+    S('marcoHistory',[]);
+    const good=ctx.fetch;
+    // words arrive, then the connection dies before the closing frame
+    ctx.fetch=function(){
+      const frames=['data: '+JSON.stringify({d:'Half a sen'})+'\n\n'];
+      let n=0;
+      return Promise.resolve({ok:true,body:{getReader:function(){return {
+        read:async function(){return n<frames.length?{value:frames[n++],done:false}:{value:undefined,done:true}}
+      }}}});
+    };
+    await ask('something quick');
+    ctx.fetch=good;
+    const texts=G('marcoHistory').map(function(m){return m.text||m.content});
+    eq('the abandoned sentence is not left on screen',
+      texts.some(function(t){return t==='Half a sen'}),false);
+    eq('and something useful was said instead',
+      G('marcoHistory').length>1&&!!G('marcoHistory')[G('marcoHistory').length-1].text,true);
+  }
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exitCode=fail?1:0;

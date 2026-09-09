@@ -48,7 +48,7 @@ console.log('-- the shape matches what the app will accept --');
 {
   eq('every field the app requires is required',
     recipe.required.slice().sort(),
-    ['c', 'cals', 'desc', 'e', 'ing', 'mins', 'rating', 'steps', 't'].sort());
+    ['c', 'cals', 'desc', 'e', 'ing', 'mins', 'rating', 'serves', 'steps', 't'].sort());
   eq('nothing else may be sent', recipe.additionalProperties, false);
   eq('recipes come back in an array', RECIPE_SCHEMA.properties.recipes.type, 'array');
 }
