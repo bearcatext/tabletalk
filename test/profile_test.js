@@ -14,7 +14,12 @@ function boot(seed){
     querySelectorAll:()=>[],focus(){}});
   const ctx={localStorage:{getItem:k=>(k in store?store[k]:null),
       setItem:(k,v)=>{store[k]=String(v)},removeItem:k=>{delete store[k]}},
-    document:{getElementById:stub,querySelectorAll:()=>[],addEventListener(){}},
+    // A real document always has a body, and code that reaches for it is not
+    // doing anything exotic — cook mode locks page scrolling through it. A stub
+    // without one turns an ordinary line into a crash that reads like a bug in
+    // the app.
+    document:{getElementById:stub,querySelectorAll:()=>[],addEventListener(){},
+      body:stub('body')},
     window:{},console:{log(){},warn(){},error(){}},fetch:()=>Promise.reject(new Error('no net')),
     confirm:()=>true};
   ctx.globalThis=ctx; vm.createContext(ctx);

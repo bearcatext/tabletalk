@@ -127,5 +127,38 @@ console.log('-- anything hidden by the hidden attribute really goes away --');
   eq('none of them can outrank [hidden] and stay on screen',unsafe,[]);
 }
 
+console.log('-- cook mode comes down when the app moves on --');
+// The cook overlay is fixed, inset:0, z-index 500, and it locks body scrolling.
+// Only its close button used to take it down, so anything else that moved the
+// app on left it covering the whole screen with nothing scrollable behind it —
+// the same shape as the profile overlay that once swallowed every tap.
+{
+  const {G,S,ctx}=boot();
+  const el=()=>ctx.document.getElementById('cook-overlay');
+  const state=()=>({shown:el().style.display,lock:ctx.document.body.style.overflow,id:G('cookRecipeId')});
+  const rid=G('ALL_RECIPES')[0].id;
+
+  ctx.startCook(rid);
+  eq('cooking puts the overlay up and locks the page',state(),{shown:'flex',lock:'hidden',id:rid});
+
+  // switching person
+  ctx.applyProfile(G('activeProfile'));
+  eq('switching person takes it back down',state(),{shown:'none',lock:'',id:null});
+
+  // changing page
+  ctx.startCook(rid);
+  ctx.showPg('plan');
+  eq('changing page takes it back down',state(),{shown:'none',lock:'',id:null});
+
+  // and the close button still works, twice, without throwing
+  ctx.startCook(rid);
+  ctx.closeCook();
+  ctx.closeCook();
+  eq('closing is safe to repeat',state(),{shown:'none',lock:'',id:null});
+  eq('and safe when never opened',(function(){
+    const b=boot();b.ctx.closeCook();
+    return b.ctx.document.body.style.overflow;})(),'');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if(fail) process.exit(1);
