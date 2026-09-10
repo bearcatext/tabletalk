@@ -42,9 +42,9 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
    wrong one the moment a transcript opened it up — it grows to nearly half the
    screen — so the height is measured and written here by syncMarcoHeight. The
    value below is only what holds until the first measurement. */
-:root{--marco-h:83px}
+:root{--marco-h:83px;--marco-lift:0px}
 .pg{display:none;max-width:880px;margin:0 auto;
-  padding:22px 18px calc(var(--marco-h) + 26px)}
+  padding:22px 18px calc(var(--marco-h) + var(--marco-lift) + 26px)}
 .pg.on{display:block}
 
 /* ── CUISINE BUTTONS ── */
@@ -8754,6 +8754,39 @@ function syncMarcoHeight(){
   if(h>0) root.style.setProperty('--marco-h',h+'px');
 }
 
+// A phone browser has two viewports: the layout one, which a fixed element is
+// positioned inside, and the smaller visible one left over once the address bar
+// and toolbar are showing. bottom:0 anchors Marco to the first, so on Firefox
+// for Android he hangs below the screen and only comes into view once you reach
+// the very bottom of the page — sitting at the foot of the page rather than on
+// the screen, which is no use to someone halfway down a list of recipes.
+//
+// visualViewport is the only thing that reports the gap. Shifting him up by it
+// puts him back where he belongs, and it does the same favour when a keyboard
+// opens: the bar rides above it instead of behind it. Where there is no gap —
+// every desktop browser, and a phone with the toolbar retracted — the shift is
+// zero and nothing moves.
+let lastLift=null;
+function pinMarco(){
+  const el=document.getElementById('marco-wrap');
+  if(!el||!el.style) return;
+  const vv=typeof window!=='undefined'?window.visualViewport:null;
+  const root=document.documentElement;
+  if(!vv||!root){el.style.transform='';lastLift=null;return}
+  const overhang=Math.round(root.clientHeight-(vv.offsetTop+vv.height));
+  const lift=overhang>0?overhang:0;
+  // This runs on every scroll frame, and writing a style that has not changed
+  // costs a recalculation for nothing.
+  if(lift===lastLift) return;
+  lastLift=lift;
+  // never push him down past where CSS already puts him
+  el.style.transform=lift?'translateY(-'+lift+'px)':'';
+  // Lifting him leaves the space the page reserved for him below where he now
+  // is, so the foot of the page would slide underneath. The page has to give
+  // back the distance he moved as well as his own height.
+  if(root.style) root.style.setProperty('--marco-lift',lift+'px');
+}
+
 function clearMarco(){
   marcoHistory=[];marcoError=null;save();renderMarco();
 }
@@ -9323,11 +9356,21 @@ renderSearchBar();
 // transcript growing as a reply streams in. Watching the element itself catches
 // all of them; renderMarco alone catches only the ones it causes.
 if(typeof ResizeObserver!=='undefined'&&document.getElementById('marco-wrap')){
-  new ResizeObserver(syncMarcoHeight).observe(document.getElementById('marco-wrap'));
+  new ResizeObserver(function(){syncMarcoHeight();pinMarco()})
+    .observe(document.getElementById('marco-wrap'));
 }
-if(typeof window!=='undefined'&&window.addEventListener)
-  window.addEventListener('resize',syncMarcoHeight);
-syncMarcoHeight();
+if(typeof window!=='undefined'&&window.addEventListener){
+  window.addEventListener('resize',function(){syncMarcoHeight();pinMarco()});
+  // The gap between the two viewports opens and closes as the address bar
+  // slides away, so this has to be watched while the page scrolls, not just
+  // when it resizes.
+  window.addEventListener('scroll',pinMarco,{passive:true});
+  if(window.visualViewport&&window.visualViewport.addEventListener){
+    window.visualViewport.addEventListener('resize',pinMarco);
+    window.visualViewport.addEventListener('scroll',pinMarco);
+  }
+}
+syncMarcoHeight();pinMarco();
 </script>
 </body>
 </html>

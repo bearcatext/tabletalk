@@ -19,7 +19,7 @@ function boot(){
   const make=id=>({id,setAttribute(){},removeAttribute(){},hidden:false,innerHTML:'',
     className:'',value:'',textContent:'',scrollTop:0,scrollHeight:1,scrollWidth:1,
     style:{_p:{},setProperty(k,v){this._p[k]=v},getPropertyValue(k){return this._p[k]||''}},
-    clientWidth:1,scrollLeft:0,offsetLeft:0,
+    clientWidth:1,clientHeight:0,scrollLeft:0,offsetLeft:0,
     classList:{add(){},remove(){},toggle(){},contains:()=>false},
     querySelector:()=>null,querySelectorAll:()=>[],focus(){},select(){},
     appendChild(){},remove(){},closest:()=>null,getBoundingClientRect:()=>({width:0,height:0})});
@@ -195,6 +195,46 @@ console.log('-- the pages leave room for the bar Marco sits in --');
   bar.getBoundingClientRect=()=>({width:0,height:0});
   ctx.syncMarcoHeight();
   eq('a bar that has not been laid out is ignored',root.style.getPropertyValue('--marco-h'),'83px');
+}
+
+console.log('-- Marco rides the visible bottom, not the layout one --');
+// A phone has two viewports: the layout one a fixed element is positioned
+// inside, and the smaller visible one left once the address bar is showing.
+// bottom:0 anchors to the first, so on Firefox for Android Marco hung below the
+// screen and only appeared on reaching the foot of the page — no use to someone
+// halfway down a list. visualViewport is the only thing that reports the gap.
+{
+  const {ctx}=boot();
+  const bar=ctx.document.getElementById('marco-wrap');
+  const root=ctx.document.documentElement;
+  root.clientHeight=750;
+  const lift=()=>root.style.getPropertyValue('--marco-lift');
+
+  // no visualViewport at all: leave the CSS alone rather than guess
+  ctx.window.visualViewport=null;
+  ctx.pinMarco();
+  eq('without the API nothing is moved',bar.style.transform,'');
+
+  const vv=(h,top)=>{ctx.window.visualViewport={height:h,offsetTop:top||0,addEventListener(){}}};
+
+  vv(750);  ctx.pinMarco();
+  eq('a full-height viewport needs no lift',bar.style.transform,'');
+  eq('and reserves no extra room',lift(),'0px');
+
+  vv(640);  ctx.pinMarco();   // 110px of address bar
+  eq('an address bar lifts him onto the screen',bar.style.transform,'translateY(-110px)');
+  eq('and the page gives back the same room',lift(),'110px');
+
+  vv(430);  ctx.pinMarco();   // a keyboard is a much bigger bite
+  eq('a keyboard lifts him above itself',bar.style.transform,'translateY(-320px)');
+
+  // The page reserves space below him. Lifting him without reserving the
+  // distance he moved would slide the foot of the page underneath.
+  eq('which the page also makes room for',lift(),'320px');
+
+  vv(800);  ctx.pinMarco();   // taller than the layout viewport
+  eq('and he is never pushed down below where CSS puts him',bar.style.transform,'');
+  eq('nor is room reserved for a lift that did not happen',lift(),'0px');
 }
 
 console.log('-- cook mode comes down when the app moves on --');
