@@ -8,7 +8,7 @@ const store={};
 const stubEl=()=>({setAttribute(){},removeAttribute(){},hidden:false,innerHTML:'',style:{},textContent:'',value:'',classList:{add(){},remove(){},toggle(){}},querySelector:()=>stubEl(),querySelectorAll:()=>[],focus(){}});
 const ctx={localStorage:{getItem:k=>store[k]??null,setItem:(k,v)=>store[k]=String(v)},
   document:{getElementById:()=>stubEl(),querySelectorAll:()=>[],addEventListener(){}},
-  window:{},console,fetch:()=>Promise.reject(new Error('no net'))};
+  window:{scrollTo(){},scrollY:0},console,fetch:()=>Promise.reject(new Error('no net'))};
 ctx.globalThis=ctx; vm.createContext(ctx);
 new vm.Script(code).runInContext(ctx);
 const G=ctx.__get, S=ctx.__set;

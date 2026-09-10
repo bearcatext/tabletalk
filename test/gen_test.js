@@ -8,7 +8,7 @@ const stub=id=>els[id]||(els[id]={setAttribute(){},removeAttribute(){},hidden:fa
 const ctx={localStorage:{getItem:k=>store[k]??null,setItem:(k,v)=>store[k]=String(v)},
   document:{getElementById:stub,querySelectorAll:()=>[],addEventListener(){},
     createElement:()=>({getContext:()=>({font:'',measureText:t=>({width:t==='\uFFFF'?10:(t==='\u{1FAD9}'?10:20)})})})},
-  window:{},console:{log(){},warn(){},error(){}},fetch:()=>Promise.reject(new Error('no net'))};
+  window:{scrollTo(){},scrollY:0},console:{log(){},warn(){},error(){}},fetch:()=>Promise.reject(new Error('no net'))};
 ctx.globalThis=ctx;vm.createContext(ctx);new vm.Script(code).runInContext(ctx);
 const G=ctx.__g,S=ctx.__s;
 let pass=0,fail=0;

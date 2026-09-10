@@ -21,7 +21,7 @@ function boot(seed){
       body:stub('body')},
     location:{href:'https://example.test/tabletalk.html',hash:'',pathname:'/tabletalk.html',search:''},
     history:{replaceState(){}},
-    window:{},console:{log(){},warn(){},error(){}},fetch:()=>Promise.reject(new Error('no net')),
+    window:{scrollTo(){},scrollY:0},console:{log(){},warn(){},error(){}},fetch:()=>Promise.reject(new Error('no net')),
     confirm:()=>true};
   ctx.globalThis=ctx; vm.createContext(ctx);
   new vm.Script(code).runInContext(ctx);

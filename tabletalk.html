@@ -612,16 +612,22 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
 @media(max-width:700px){
   /* Expanding inline shoves the rest of the list a long way down and you lose
      your place. On a phone the recipe takes the whole screen instead. */
-  /* inset:0 alone is measured against the layout viewport, which on iOS stays
-     the size it is with the URL bar retracted. With the bar and the toolbar
-     showing, the bottom of this panel sits behind them: it scrolls internally,
-     so the content is all there, but the last stretch of it can never be
-     brought into view and the recipe looks cut off at a fixed height. 100dvh
-     tracks what is actually visible. inset:0 stays as the fallback for
-     browsers without dvh, which ignore the line below. */
-  .detail-panel{position:fixed;inset:0;height:100dvh;z-index:300;margin:0;border:0;border-radius:0;
-    overflow-y:auto;overscroll-behavior:contain;background:var(--paper);
-    animation:none;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+  /* The recipe used to be a position:fixed layer that scrolled inside itself.
+     Two viewports decide how tall that is — the layout one it is sized against
+     and the visible one left over after the browser's toolbars — and on
+     Firefox for Android they are not the same. The panel was sized to the
+     taller one, so its last stretch sat below the screen where no amount of
+     dragging could reach it: on Pasta e ceci that meant the seventh ingredient
+     did not exist as far as the cook was concerned. inset:0 had the same fault
+     and 100dvh did not cure it.
+
+     So there is no nested scroller any more. The recipe is ordinary page
+     content and the page scrolls, which every browser has always got right.
+     What made it feel full-screen was covering the list, and hiding the list
+     does that just as well — see .dp-open below. */
+  .detail-panel{position:static;margin:0;border:0;border-radius:0;
+    background:var(--paper);animation:none;
+    padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
   .dp-head{flex-direction:column;align-items:stretch;gap:10px;
     padding:10px 16px 14px}
   .dp-title{font-size:22px;line-height:1.15}
@@ -639,6 +645,16 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
     background:var(--card);color:var(--ink);font-size:20px;cursor:pointer;
     box-shadow:0 2px 10px rgba(28,24,20,.18)}
   .detail-panel{padding-top:60px}
+  /* An open recipe takes the screen by clearing everything else off it rather
+     than by floating over it. Written as "everything except" on purpose: the
+     things above the grid change often, and an allow-list of what to hide goes
+     stale the first time one of them is renamed. */
+  body.dp-open .nav,
+  body.dp-open .marco-wrap,
+  body.dp-open .pg>*:not(#results-area),
+  body.dp-open #results-area>*:not(.cards-grid),
+  body.dp-open .cards-grid>*:not(.detail-panel){display:none}
+  body.dp-open .pg{padding-top:0}
   .dp-emoji{display:none}
   /* thumbs need a bigger target than a mouse does */
   .serves-b{width:38px;height:38px;font-size:19px}
@@ -6882,6 +6898,11 @@ function refineStripHtml(){
 
 function renderCards(){
   const area=document.getElementById('results-area');
+  // Nine different places set expandedId — hiding a recipe, deleting one,
+  // changing cuisine, searching, switching person. Reading it here rather than
+  // asking each of them to remember means the list cannot stay hidden behind a
+  // recipe that has already gone.
+  syncDetailOpen();
   if(!selAny()){area.innerHTML='';return}
   const isPantry=mode==='pantry';
   const isSearch=mode==='search';
@@ -6929,17 +6950,27 @@ function toggleFavCard(id,el){
   el.setAttribute('aria-label',(on?'Remove from':'Save to')+' favorites');
 }
 
+// On a phone an open recipe clears the rest of the screen, and the class is
+// what the stylesheet hangs that on. It has to be set wherever expandedId
+// changes, or the list stays hidden behind a recipe that is no longer there.
+function syncDetailOpen(){
+  if(!document.body||!document.body.classList) return;
+  document.body.classList.toggle('dp-open',!!expandedId);
+}
+
+let listScrollY=0;
 function toggleExpand(id){
-  expandedId=expandedId===id?null:id;
+  const opening=expandedId!==id;
+  if(opening) listScrollY=window.scrollY||0;
+  expandedId=opening?id:null;
   openSwap={};
   if(!activeTab[id])activeTab[id]='ingredients';
+  syncDetailOpen();
   renderCards();
-  if(expandedId){
-    setTimeout(()=>{
-      const el=document.getElementById('dp-'+id);
-      if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});
-    },60);
-  }
+  // The recipe starts at the top of the page, because on a phone it is the
+  // only thing on it. Closing it puts them back where they were in the list
+  // rather than at the top of a screen they have already scrolled through.
+  window.scrollTo(0,opening?0:listScrollY);
 }
 
 // ─── DETAIL PANEL ─────────────────────────────────────────────────────────────

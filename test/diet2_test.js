@@ -9,7 +9,7 @@ const stub=id=>els[id]||(els[id]={setAttribute(){},removeAttribute(){},hidden:fa
 const ctx={localStorage:{getItem:()=>null,setItem:()=>{}},
   document:{getElementById:stub,querySelectorAll:()=>[],addEventListener(){},body:{style:{}},
     createElement:()=>({getContext:()=>({font:'',measureText:()=>({width:20})})})},
-  window:{},console:{log(){},warn(){},error(){}},setTimeout:()=>0,fetch:()=>Promise.reject()};
+  window:{scrollTo(){},scrollY:0},console:{log(){},warn(){},error(){}},setTimeout:()=>0,fetch:()=>Promise.reject()};
 ctx.globalThis=ctx;vm.createContext(ctx);new vm.Script(code).runInContext(ctx);
 const G=ctx.__g,S=ctx.__s,R=G('ALL_RECIPES'),lp=G('leanProtein');
 let pass=0,fail=0;

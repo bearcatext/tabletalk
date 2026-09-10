@@ -5,7 +5,7 @@ const code=fs.readFileSync(APP,'utf8').match(/<script(?![^>]*src=)[^>]*>([\s\S]*
   + "\n;globalThis.__g=n=>eval(n);globalThis.__s=(n,v)=>{eval(n+'=v')};";
 const els={};
 const stub=id=>els[id]||(els[id]={setAttribute(){},removeAttribute(){},hidden:false,innerHTML:'',className:'',style:{},value:'',classList:{add(){},remove(){},toggle(){}},querySelector:()=>stub('x'),querySelectorAll:()=>[],focus(){}});
-const ctx={localStorage:{getItem:()=>null,setItem:()=>{}},document:{getElementById:stub,querySelectorAll:()=>[],addEventListener(){}},window:{},console,fetch:()=>Promise.reject()};
+const ctx={localStorage:{getItem:()=>null,setItem:()=>{}},document:{getElementById:stub,querySelectorAll:()=>[],addEventListener(){}},window:{scrollTo(){},scrollY:0},console,fetch:()=>Promise.reject()};
 ctx.globalThis=ctx;vm.createContext(ctx);new vm.Script(code).runInContext(ctx);
 const G=ctx.__g,S=ctx.__s;
 let pass=0,fail=0;
@@ -55,7 +55,28 @@ eq('there is a phone breakpoint',css.indexOf('@media(max-width:700px)')>=0,true)
 eq('the grid becomes a swipe strip',css.indexOf('.picker-grid{display:flex;flex-wrap:nowrap')>=0,true);
 eq('cards become pills that do not squash',css.indexOf('.pcard{flex:0 0 auto')>=0,true);
 eq('touch targets clear 44px',css.indexOf('min-height:44px')>=0,true);
-eq('the recipe takes the whole screen',css.indexOf('.detail-panel{position:fixed;inset:0')>=0,true);
+// The recipe still takes the whole screen on a phone; it stopped doing it by
+// floating over the list as a position:fixed layer that scrolled inside
+// itself. Firefox for Android sizes such a layer to a viewport taller than the
+// one you can see, so its foot sat below the screen and no drag would reach
+// it — the seventh ingredient of Pasta e ceci was simply unreachable. It now
+// clears the list off the screen instead and lets the page scroll, so this
+// asserts the effect rather than the mechanism it used to use.
+{
+  const phone=css.slice(css.indexOf('/* ── PHONE: RECIPE DETAIL ──'));
+  eq('the recipe is ordinary page content',
+    /\.detail-panel\{position:static/.test(phone),true);
+  eq('and is not a scroller of its own',
+    /\.detail-panel\{[^}]*overflow-y:auto/.test(phone),false);
+  eq('nothing sizes it to a viewport it cannot measure',
+    /\.detail-panel\{[^}]*(100dvh|100vh|inset:0)/.test(phone),false);
+  eq('an open recipe clears the rest of the screen',
+    /body\.dp-open[^{]*\{display:none\}/.test(phone.replace(/\s+/g,'')) ||
+    /body\.dp-open/.test(phone),true);
+  // written as "everything except", so a renamed sibling cannot leak through
+  eq('by hiding everything that is not the recipe',
+    /:not\(\.detail-panel\)/.test(phone),true);
+}
 eq('and there is a way back',css.indexOf('.dp-back{display:none}')>=0,true);
 // earlier tests picked a cuisine, which collapses the picker to its bar
 S('pickerOpen',true);ctx.renderCuisineRow();

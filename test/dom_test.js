@@ -33,7 +33,7 @@ function boot(){
       head:make('head'),body:make('body')},
     location:{href:'https://example.test/tabletalk.html',hash:'',pathname:'/tabletalk.html',search:''},
     history:{replaceState(){}},
-    window:{addEventListener(){}},console:{log(){},warn(){},error(){}},
+    window:{addEventListener(){},scrollTo(){},scrollY:0},console:{log(){},warn(){},error(){}},
     fetch:()=>Promise.reject(new Error('no net')),confirm:()=>true};
   ctx.globalThis=ctx; vm.createContext(ctx);
   new vm.Script(code).runInContext(ctx);
@@ -125,6 +125,34 @@ console.log('-- anything hidden by the hidden attribute really goes away --');
     return !new RegExp('\\.'+c+'\\[hidden\\]').test(style);
   });
   eq('none of them can outrank [hidden] and stay on screen',unsafe,[]);
+}
+
+console.log('-- an open recipe marks the body, and lets go of it --');
+// The phone layout hides the whole list behind this one class. If it is ever
+// left on after the recipe closes, the list stays hidden and the app looks
+// empty; if it is missing while one is open, the recipe renders halfway down a
+// page of cards. Nine different places change expandedId, so the class is read
+// off it in renderCards rather than set by each of them.
+{
+  const {G,S,ctx}=boot();
+  const cls=[];
+  ctx.document.body.classList.toggle=function(n,on){cls.length=0;if(on)cls.push(n);return on};
+  ctx.document.body.classList.contains=n=>cls.indexOf(n)>=0;
+  const open=()=>ctx.document.body.classList.contains('dp-open');
+
+  const r=G('ALL_RECIPES')[0];
+  ctx.selectCuisine(r.c);
+  eq('nothing open to begin with',open(),false);
+  ctx.toggleExpand(r.id);
+  eq('opening a recipe marks the body',open(),true);
+  ctx.toggleExpand(r.id);
+  eq('closing it lets go',open(),false);
+
+  // the paths that close a recipe without going through toggleExpand
+  ctx.toggleExpand(r.id);
+  eq('open again',open(),true);
+  S('expandedId',null); ctx.renderCards();
+  eq('and a redraw with nothing open clears it too',open(),false);
 }
 
 console.log('-- cook mode comes down when the app moves on --');

@@ -20,7 +20,7 @@ function boot(seed){
     // the app.
     document:{getElementById:stub,querySelectorAll:()=>[],addEventListener(){},
       body:stub('body')},
-    window:{},console:{log(){},warn(){},error(){}},fetch:()=>Promise.reject(new Error('no net')),
+    window:{scrollTo(){},scrollY:0},console:{log(){},warn(){},error(){}},fetch:()=>Promise.reject(new Error('no net')),
     confirm:()=>true};
   ctx.globalThis=ctx; vm.createContext(ctx);
   new vm.Script(code).runInContext(ctx);

@@ -10,7 +10,7 @@ let sent=null;
 const ctx={localStorage:{getItem:k=>store[k]??null,setItem:(k,v)=>store[k]=String(v)},
   document:{getElementById:stub,querySelectorAll:()=>[],addEventListener(){},body:{style:{}},
     createElement:()=>({getContext:()=>({font:'',measureText:()=>({width:20})})})},
-  window:{},console:{log(){},warn(){},error(){}},setTimeout:(f)=>{f&&f();return 0},
+  window:{scrollTo(){},scrollY:0},console:{log(){},warn(){},error(){}},setTimeout:(f)=>{f&&f();return 0},
   // The proxy streams chat replies now, so the stub does too — in several
   // pieces, because arriving whole is the one case that cannot go wrong.
   TextDecoder:class{decode(v){return typeof v==='string'?v:String(v)}},
