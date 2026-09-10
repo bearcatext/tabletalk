@@ -237,6 +237,56 @@ console.log('-- Marco rides the visible bottom, not the layout one --');
   eq('nor is room reserved for a lift that did not happen',lift(),'0px');
 }
 
+console.log('-- cook mode is the size of the screen, and keeps its Next button --');
+// Cook mode is a fixed full-screen layer. Sized with inset:0 or 100dvh it was
+// measured against the layout viewport, so on Firefox for Android the whole
+// footer — Next button included — sat below the screen. And .cook-body had no
+// overflow of its own: a flex child will not shrink below its content, so a
+// wordy step grew the box and pushed the footer down as well. Linguine al
+// limone, six steps of around 230 characters, lost the button on anything
+// shorter than 730px.
+{
+  const style=(html.match(/<style>([\s\S]*?)<\/style>/)||[,''])[1].replace(/\s*\n\s*/g,'');
+  const rule=n=>(style.match(new RegExp('\\'+'.'+n+'\\{([^}]*)\\}'))||[,''])[1];
+
+  const overlay=rule('cook-overlay');
+  eq('the overlay is sized to the visible viewport',/height:var\(--vv-h/.test(overlay),true);
+  eq('with a fallback until it is measured',/--vv-h,\s*100dvh/.test(overlay),true);
+  eq('and is not anchored to the layout viewport',/inset:0/.test(overlay),false);
+
+  const body=rule('cook-body');
+  eq('the step scrolls inside its own box',/overflow-y:auto/.test(body),true);
+  eq('and is allowed to shrink, which is what lets the footer stay',
+    /min-height:0/.test(body),true);
+  eq('centring cannot cut off the top of a long step',/justify-content:safe center/.test(body),true);
+
+  const marco=rule('cook-marco');
+  eq('Marco takes his own share rather than floating over the footer',
+    /position:absolute/.test(marco),false);
+  eq('and is capped so the step keeps room',/max-height:\d+%/.test(marco),true);
+
+  // the measurement itself
+  const {ctx}=boot();
+  const root=ctx.document.documentElement;
+  root.clientHeight=750;
+  ctx.window.visualViewport={height:640,offsetTop:0,addEventListener(){}};
+  ctx.syncViewport();
+  eq('the visible height is written where the CSS can read it',
+    root.style.getPropertyValue('--vv-h'),'640px');
+  eq('and so is where it starts',root.style.getPropertyValue('--vv-top'),'0px');
+
+  ctx.window.visualViewport=null;
+  ctx.syncViewport();
+  eq('without the API it falls back to the layout viewport',
+    root.style.getPropertyValue('--vv-h'),'750px');
+
+  // A zero reading means nothing is laid out yet; writing it would collapse the
+  // overlay to nothing.
+  root.clientHeight=0;
+  ctx.syncViewport();
+  eq('a viewport of nothing is ignored',root.style.getPropertyValue('--vv-h'),'750px');
+}
+
 console.log('-- cook mode comes down when the app moves on --');
 // The cook overlay is fixed, inset:0, z-index 500, and it locks body scrolling.
 // Only its close button used to take it down, so anything else that moved the

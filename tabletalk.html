@@ -368,16 +368,29 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
 .comment-submit:hover{opacity:.75}
 
 /* ── COOK MODE ── */
-/* 100dvh for the same reason as the recipe panel: a fixed inset:0 layer on iOS
-   is sized to the URL-bar-retracted viewport, so its footer — the Next button —
-   ends up behind the browser toolbar. */
-.cook-overlay{position:fixed;inset:0;height:100dvh;background:var(--ink);z-index:500;display:flex;flex-direction:column;color:var(--chalk)}
+/* Sized to the viewport you can see, not the one the browser lays out in. A
+   fixed inset:0 layer — and 100dvh with it — resolves against the taller
+   layout viewport on Firefox for Android, which put the whole footer, Next
+   button included, below the screen. --vv-h is measured from visualViewport by
+   syncViewport; 100dvh is only the fallback until it runs. */
+.cook-overlay{position:fixed;left:0;right:0;top:var(--vv-top,0px);height:var(--vv-h,100dvh);
+  background:var(--ink);z-index:500;display:flex;flex-direction:column;color:var(--chalk)}
 .cook-nav{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.1)}
 .cook-close{background:none;border:none;color:var(--chalk);cursor:pointer;font-size:20px;display:flex;align-items:center;opacity:.7;padding:0}
 .cook-close:hover{opacity:1}
 .cook-title{font-family:var(--ff);font-size:16px;font-weight:300;font-style:italic;flex:1;opacity:.8}
 .cook-prog{font-size:12px;opacity:.5;margin-left:auto}
-.cook-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px 24px;text-align:center;gap:20px}
+/* A flex child will not shrink below its own content unless it is told it may,
+   so a wordy step grew this box and pushed the footer — and the Next button
+   with it — off the bottom. Linguine al limone has six steps of about 230
+   characters each and lost the button on any screen shorter than 730px. The
+   step scrolls inside here now; the footer does not move. */
+.cook-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  display:flex;flex-direction:column;align-items:center;
+  /* plain centring cuts off the top of anything taller than the box, and the
+     browsers that do not know "safe" keep the line above */
+  justify-content:center;justify-content:safe center;
+  padding:30px 24px;text-align:center;gap:20px}
 .cook-step-n{font-size:13px;opacity:.4;text-transform:uppercase;letter-spacing:.1em}
 .cook-step-text{font-family:var(--ff);font-size:26px;font-weight:300;line-height:1.45;max-width:560px}
 .cook-step-tip{font-size:14px;opacity:.5;font-style:italic;max-width:400px}
@@ -501,7 +514,13 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
 /* Marco inside cook mode */
 .cook-marco-btn{background:none;border:1px solid rgba(255,255,255,.25);color:var(--chalk);font-family:var(--fb);font-size:12px;padding:6px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .15s}
 .cook-marco-btn:hover{background:rgba(255,255,255,.12)}
-.cook-marco{display:none;flex-direction:column;gap:10px;position:absolute;left:0;right:0;bottom:0;background:var(--paper);border-top:1px solid var(--border);padding:14px 18px;max-height:60vh;z-index:20}
+/* In the flow of the overlay rather than floating over the foot of it. Pinned
+   at bottom:0 it covered the footer and the step scrolled underneath it; as a
+   flex child it takes its own share and the step shrinks to fit, so nothing can
+   end up behind anything. */
+.cook-marco{display:none;flex-direction:column;gap:10px;flex:0 0 auto;min-height:0;
+  background:var(--paper);border-top:1px solid var(--border);padding:14px 18px;
+  max-height:45%;z-index:20}
 #cook-marco-area{overflow-y:auto;flex:1}
 .cook-marco .marco-inner{max-width:100%}
 .marco-rhead{display:flex;align-items:center;gap:8px;margin-bottom:8px}
@@ -8766,6 +8785,25 @@ function syncMarcoHeight(){
 // opens: the bar rides above it instead of behind it. Where there is no gap —
 // every desktop browser, and a phone with the toolbar retracted — the shift is
 // zero and nothing moves.
+// The size and position of the part of the screen you can actually see, for
+// anything that has to sit on it rather than in the layout viewport. Cook mode
+// is a fixed full-screen layer, and sized with inset:0 or 100dvh it ran past
+// the bottom of the phone, taking the Next button with it.
+let lastVV='';
+function syncViewport(){
+  const root=document.documentElement;
+  if(!root||!root.style) return;
+  const vv=typeof window!=='undefined'?window.visualViewport:null;
+  const h=Math.round(vv?vv.height:(root.clientHeight||0));
+  const top=Math.round(vv?vv.offsetTop:0);
+  if(!h) return;                      // nothing laid out yet; leave the fallback
+  const key=h+':'+top;
+  if(key===lastVV) return;            // this runs on every scroll frame
+  lastVV=key;
+  root.style.setProperty('--vv-h',h+'px');
+  root.style.setProperty('--vv-top',top+'px');
+}
+
 let lastLift=null;
 function pinMarco(){
   const el=document.getElementById('marco-wrap');
@@ -9355,22 +9393,24 @@ renderSearchBar();
 // wrapping to two lines on a narrow screen, a phone keyboard opening, the
 // transcript growing as a reply streams in. Watching the element itself catches
 // all of them; renderMarco alone catches only the ones it causes.
+// Everything that has to follow the visible screen, in one place.
+function reflowChrome(){syncMarcoHeight();syncViewport();pinMarco()}
+
 if(typeof ResizeObserver!=='undefined'&&document.getElementById('marco-wrap')){
-  new ResizeObserver(function(){syncMarcoHeight();pinMarco()})
-    .observe(document.getElementById('marco-wrap'));
+  new ResizeObserver(reflowChrome).observe(document.getElementById('marco-wrap'));
 }
 if(typeof window!=='undefined'&&window.addEventListener){
-  window.addEventListener('resize',function(){syncMarcoHeight();pinMarco()});
+  window.addEventListener('resize',reflowChrome);
   // The gap between the two viewports opens and closes as the address bar
   // slides away, so this has to be watched while the page scrolls, not just
   // when it resizes.
-  window.addEventListener('scroll',pinMarco,{passive:true});
+  window.addEventListener('scroll',reflowChrome,{passive:true});
   if(window.visualViewport&&window.visualViewport.addEventListener){
-    window.visualViewport.addEventListener('resize',pinMarco);
-    window.visualViewport.addEventListener('scroll',pinMarco);
+    window.visualViewport.addEventListener('resize',reflowChrome);
+    window.visualViewport.addEventListener('scroll',reflowChrome);
   }
 }
-syncMarcoHeight();pinMarco();
+reflowChrome();
 </script>
 </body>
 </html>
