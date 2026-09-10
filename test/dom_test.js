@@ -17,7 +17,8 @@ markup.replace(/\bid="([^"]+)"/g,(m,id)=>{REAL_IDS.add(id);return m});
 function boot(){
   const els={};
   const make=id=>({id,setAttribute(){},removeAttribute(){},hidden:false,innerHTML:'',
-    className:'',style:{},value:'',textContent:'',scrollTop:0,scrollHeight:1,scrollWidth:1,
+    className:'',value:'',textContent:'',scrollTop:0,scrollHeight:1,scrollWidth:1,
+    style:{_p:{},setProperty(k,v){this._p[k]=v},getPropertyValue(k){return this._p[k]||''}},
     clientWidth:1,scrollLeft:0,offsetLeft:0,
     classList:{add(){},remove(){},toggle(){},contains:()=>false},
     querySelector:()=>null,querySelectorAll:()=>[],focus(){},select(){},
@@ -30,7 +31,7 @@ function boot(){
       getElementById:id=>REAL_IDS.has(id)?(els[id]||(els[id]=make(id))):null,
       querySelectorAll:()=>[],addEventListener(){},
       createElement:()=>make('created'),
-      head:make('head'),body:make('body')},
+      head:make('head'),body:make('body'),documentElement:make('html')},
     location:{href:'https://example.test/tabletalk.html',hash:'',pathname:'/tabletalk.html',search:''},
     history:{replaceState(){}},
     window:{addEventListener(){},scrollTo(){},scrollY:0},console:{log(){},warn(){},error(){}},
@@ -140,19 +141,60 @@ console.log('-- an open recipe marks the body, and lets go of it --');
   ctx.document.body.classList.contains=n=>cls.indexOf(n)>=0;
   const open=()=>ctx.document.body.classList.contains('dp-open');
 
-  const r=G('ALL_RECIPES')[0];
-  ctx.selectCuisine(r.c);
+  ctx.selectCuisine(G('ALL_RECIPES')[0].c);
+  const shown=G('shownIds');
+  eq('there are cards on screen to open',shown.length>0,true);   // canary
+  const id=shown[0];
+
   eq('nothing open to begin with',open(),false);
-  ctx.toggleExpand(r.id);
+  ctx.toggleExpand(id);
   eq('opening a recipe marks the body',open(),true);
-  ctx.toggleExpand(r.id);
+  ctx.toggleExpand(id);
   eq('closing it lets go',open(),false);
 
   // the paths that close a recipe without going through toggleExpand
-  ctx.toggleExpand(r.id);
+  ctx.toggleExpand(id);
   eq('open again',open(),true);
   S('expandedId',null); ctx.renderCards();
   eq('and a redraw with nothing open clears it too',open(),false);
+
+  // The class hides the whole list. Setting it for a recipe that is not being
+  // drawn would leave a phone showing nothing at all, with no way back.
+  const absent=G('ALL_RECIPES').map(r=>r.id).find(x=>shown.indexOf(x)<0);
+  eq('there is a recipe that is not on screen',absent!==undefined,true);   // canary
+  S('expandedId',absent); ctx.renderCards();
+  eq('a recipe that is not on the page does not hide the page',open(),false);
+}
+
+console.log('-- the pages leave room for the bar Marco sits in --');
+// Marco is fixed to the foot of the screen, so a page that does not end above
+// him has its last line quietly buried. The room needed is not a constant —
+// the bar is 83px empty and opens to nearly half the screen with a transcript —
+// and getting it wrong fails silently, which is why it is measured.
+{
+  const {ctx,els}=boot();
+  const style=(html.match(/<style>([\s\S]*?)<\/style>/)||[,''])[1];
+  eq('the pages reserve room rather than guessing a number',
+    /\.pg\{[^}]*padding:[^}]*var\(--marco-h\)/.test(style.replace(/\s*\n\s*/g,'')),true);
+  eq('and there is a starting value before anything is measured',
+    /:root\{[^}]*--marco-h:\s*\d+px/.test(style),true);
+
+  const root=ctx.document.documentElement;
+  const bar=ctx.document.getElementById('marco-wrap');
+  eq('the bar is a real element on the page',!!bar,true);   // canary
+  bar.getBoundingClientRect=()=>({width:390,height:212});   // a transcript is open
+  ctx.renderMarco();
+  eq('rendering Marco writes his real height',root.style.getPropertyValue('--marco-h'),'212px');
+
+  bar.getBoundingClientRect=()=>({width:390,height:83});    // cleared again
+  ctx.syncMarcoHeight();
+  eq('and it comes back down when he does',root.style.getPropertyValue('--marco-h'),'83px');
+
+  // A zero reading means the bar is not laid out yet — printing it would take
+  // the reserved space away entirely.
+  bar.getBoundingClientRect=()=>({width:0,height:0});
+  ctx.syncMarcoHeight();
+  eq('a bar that has not been laid out is ignored',root.style.getPropertyValue('--marco-h'),'83px');
 }
 
 console.log('-- cook mode comes down when the app moves on --');

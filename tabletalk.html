@@ -37,7 +37,14 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
 .fav-badge{background:var(--fav);color:var(--chalk);border-radius:8px;font-size:10px;padding:1px 5px;margin-left:3px;font-weight:600}
 
 /* ── PAGES ── */
-.pg{display:none;max-width:880px;margin:0 auto;padding:22px 18px 110px}
+/* Marco is fixed to the foot of the screen, so every page has to end above him
+   rather than behind him. 110px was the right answer for an empty bar and the
+   wrong one the moment a transcript opened it up — it grows to nearly half the
+   screen — so the height is measured and written here by syncMarcoHeight. The
+   value below is only what holds until the first measurement. */
+:root{--marco-h:83px}
+.pg{display:none;max-width:880px;margin:0 auto;
+  padding:22px 18px calc(var(--marco-h) + 26px)}
 .pg.on{display:block}
 
 /* ── CUISINE BUTTONS ── */
@@ -627,7 +634,7 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
      does that just as well — see .dp-open below. */
   .detail-panel{position:static;margin:0;border:0;border-radius:0;
     background:var(--paper);animation:none;
-    padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+    padding-bottom:env(safe-area-inset-bottom,0px)}
   .dp-head{flex-direction:column;align-items:stretch;gap:10px;
     padding:10px 16px 14px}
   .dp-title{font-size:22px;line-height:1.15}
@@ -649,8 +656,11 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
      than by floating over it. Written as "everything except" on purpose: the
      things above the grid change often, and an allow-list of what to hide goes
      stale the first time one of them is renamed. */
+  /* Marco stays. Standing in front of a recipe is exactly when you want to ask
+     what to do about the ingredient you have not got, and he is fixed to the
+     foot of the screen, so he costs the recipe nothing but the space the page
+     already reserves for him. */
   body.dp-open .nav,
-  body.dp-open .marco-wrap,
   body.dp-open .pg>*:not(#results-area),
   body.dp-open #results-area>*:not(.cards-grid),
   body.dp-open .cards-grid>*:not(.detail-panel){display:none}
@@ -6955,7 +6965,12 @@ function toggleFavCard(id,el){
 // changes, or the list stays hidden behind a recipe that is no longer there.
 function syncDetailOpen(){
   if(!document.body||!document.body.classList) return;
-  document.body.classList.toggle('dp-open',!!expandedId);
+  // The recipe has to be one that is actually being drawn, not merely the last
+  // one opened. This class clears the whole list off a phone screen, so setting
+  // it for a recipe that is not in shownIds leaves nothing on screen at all and
+  // no way back — which is what "5 more options" does to an open recipe.
+  const onScreen=!!expandedId&&shownIds.indexOf(expandedId)>=0;
+  document.body.classList.toggle('dp-open',onScreen);
 }
 
 let listScrollY=0;
@@ -8723,7 +8738,22 @@ function renderMarco(){
     a.innerHTML=h;
     a.scrollTop=a.scrollHeight;
   });
+  syncMarcoHeight();
 }
+
+// Marco is fixed to the foot of the screen, so the pages have to end above him.
+// How much room that takes is not a constant: an empty bar is 83px, and a
+// transcript opens it to nearly half the screen. Measuring beats guessing, and
+// a guess here does not fail visibly — it just quietly buries the last line of
+// whatever you were reading.
+function syncMarcoHeight(){
+  const el=document.getElementById('marco-wrap');
+  const root=document.documentElement;
+  if(!el||!root||!root.style||!el.getBoundingClientRect) return;
+  const h=Math.round(el.getBoundingClientRect().height);
+  if(h>0) root.style.setProperty('--marco-h',h+'px');
+}
+
 function clearMarco(){
   marcoHistory=[];marcoError=null;save();renderMarco();
 }
@@ -9287,6 +9317,17 @@ checkShareLink();
 renderMarco();
 updatePlanBadge();
 renderSearchBar();
+
+// The bar changes height for reasons no render call knows about: the placeholder
+// wrapping to two lines on a narrow screen, a phone keyboard opening, the
+// transcript growing as a reply streams in. Watching the element itself catches
+// all of them; renderMarco alone catches only the ones it causes.
+if(typeof ResizeObserver!=='undefined'&&document.getElementById('marco-wrap')){
+  new ResizeObserver(syncMarcoHeight).observe(document.getElementById('marco-wrap'));
+}
+if(typeof window!=='undefined'&&window.addEventListener)
+  window.addEventListener('resize',syncMarcoHeight);
+syncMarcoHeight();
 </script>
 </body>
 </html>
