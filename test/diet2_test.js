@@ -1,5 +1,6 @@
 const fs=require('fs'),vm=require('vm');
 const path=require('path');
+const {pick,pickAll,absentWord}=require('./pick.js');
 const APP=process.argv[2]||path.join(__dirname,'..','tabletalk.html');
 const code=fs.readFileSync(APP,'utf8').match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/)[1]
   + "\n;globalThis.__g=n=>eval(n);globalThis.__s=(n,v)=>{eval(n+'=v')};";
@@ -20,13 +21,17 @@ const eq=(n,g,w)=>{const ok=JSON.stringify(g)===JSON.stringify(w);
 // A vegetable dish can be heart healthy. Requiring a protein shut out 45
 // recipes and left the category monotonous.
 const hh=R.filter(r=>ctx.dietStatus(r,'hh').ok);
-eq('a dish without a protein is allowed in',ctx.dietStatus(R.find(r=>r.t==='Bruschetta al pomodoro'),'hh').ok,true);
+// found by shape: something with no meat, fish or egg in it at all
+eq('a dish without a protein is allowed in',ctx.dietStatus(
+  pick(R,r=>ctx.dietStatus(r,'hh').ok&&!r.ing.some(i=>/\b(chicken|beef|lamb|pork|fish|salmon|prawn|tuna|cod|turkey|egg)\b/i.test(i.n)),
+    'a heart-healthy dish with no protein in it'),'hh').ok,true);
 eq('the category carries a mix of proteins',(function(){
   const kinds=new Set(hh.map(function(r){return lp(r)||'none'}));
   return kinds.size>=4;})(),true);
 eq('and plenty without one',hh.filter(function(r){return !lp(r)}).length>10,true);
 // the rules that do still block
-eq('red meat is still out',ctx.dietStatus(R.find(r=>r.t==='Chili con carne'),'hh').ok,false);
+eq('red meat is still out',ctx.dietStatus(
+  pick(R,r=>r.ing.some(i=>/\b(beef|lamb|pork|mince)\b/i.test(i.n)),'a dish built on red meat'),'hh').ok,false);
 eq('and so is anything over the calorie cap',hh.every(function(r){return r.cals<=G('HH_CALORIE_CAP')}),true);
 
 // seasonings must not count as the protein

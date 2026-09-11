@@ -88,6 +88,28 @@ node test/search_test.js
 node test/run.js some-other-build.html
 ```
 
+### Fixtures are found, not named
+
+A suite that does `R.find(r => r.t === 'Spaghetti carbonara')` gets a recipe
+today and a broken build the day someone renames that dish. It is not
+hypothetical: six assertions failed the moment three scallop recipes were
+added, because they had named scallops as the ingredient the catalogue did not
+have — and the failure surfaced in a suite that had nothing to do with the
+change.
+
+So tests ask for a recipe with a *property* — one that is a swap away from
+gluten-free, one with nothing to do ahead — through `test/pick.js`, which
+fails saying what it could not find rather than handing back `undefined`.
+
+```bash
+node test/shrink.js      # drop every 7th recipe, run everything against the rest
+node test/shrink.js 3    # a harsher cut
+```
+
+Anything still tied to one dish fails here. A deep cut will also trip
+assertions about the catalogue being *big enough* — those are meant to fail
+when it really shrinks.
+
 ## The API key
 
 One key, two places, and never in a file.

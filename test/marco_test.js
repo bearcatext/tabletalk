@@ -1,5 +1,6 @@
 const fs=require('fs'),vm=require('vm');
 const path=require('path');
+const {pick,pickAll,absentWord}=require('./pick.js');
 const APP=process.argv[2]||path.join(__dirname,'..','tabletalk.html');
 const code=fs.readFileSync(APP,'utf8').match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/)[1]
   + "\n;globalThis.__g=n=>eval(n);globalThis.__s=(n,v)=>{eval(n+'=v')};";
@@ -121,12 +122,23 @@ eq('and clicking opens it in Discover',/jumpToRecipe/.test(html),true);
   console.log('-- naming a dish attaches its detail --');
   // Short names are how people refer to dishes. Requiring the whole title meant
   // the most obvious question got answered from a line with no amounts in it.
-  eq('a short name finds the dish',ctx.recipesInPlay('how much guanciale in carbonara?')
-    .map(function(r){return r.t}),['Spaghetti carbonara']);
-  eq('the full name works too',ctx.recipesInPlay('spaghetti carbonara')
-    .map(function(r){return r.t}),['Spaghetti carbonara']);
-  eq('a short title matches whole',ctx.recipesInPlay('tell me about pad thai')
-    .map(function(r){return r.t}),['Pad thai']);
+  // A dish whose title is two words, the second of which is distinctive enough
+  // to name it on its own — found, not named, so the assertion survives the
+  // catalogue changing under it.
+  const twoWord=pick(G('ALL_RECIPES'),function(r){
+    const w=r.t.split(/\s+/);
+    if(w.length!==2) return false;
+    const tail=w[1].toLowerCase().replace(/[^a-z]/g,'');
+    return tail.length>5&&G('ALL_RECIPES').filter(function(x){
+      return x.t.toLowerCase().indexOf(tail)>=0}).length===1;
+  },'a two-word dish whose second word names it uniquely');
+  const shortName=twoWord.t.split(/\s+/)[1].toLowerCase().replace(/[^a-z]/g,'');
+  eq('a short name finds the dish',
+    ctx.recipesInPlay('how much garlic in '+shortName+'?').map(function(r){return r.t}),[twoWord.t]);
+  eq('the full name works too',ctx.recipesInPlay(twoWord.t.toLowerCase())
+    .map(function(r){return r.t}),[twoWord.t]);
+  eq('a short title matches whole',ctx.recipesInPlay('tell me about '+twoWord.t)
+    .map(function(r){return r.t}),[twoWord.t]);
   eq('one common word is not a reference',ctx.recipesInPlay('what can I make with chicken').length,0);
   eq('nor is a bare ingredient',ctx.recipesInPlay('chicken').length,0);
   eq('vague asks attach nothing',ctx.recipesInPlay('give me something quick').length,0);
@@ -188,12 +200,26 @@ eq('and clicking opens it in Discover',/jumpToRecipe/.test(html),true);
   eq('a bare ingredient finds a recipe that has alternatives',
     la('what can I use instead of fish sauce').text.indexOf('Instead of')===0,true);
 
-  eq('timing includes the make-ahead split',
-    /can be done ahead/.test(la('how long does the korma take').text),true);
-  eq('steps are listed in order',
-    /1\. Cook the rice/.test(la('what are the steps for stuffed peppers').text),true);
-  eq('ingredients can be listed',
-    /cashews/i.test(la('whats in the korma').text),true);
+  // Each of these needs a dish with a property, not a dish with a name. Written
+  // as "the korma" and "stuffed peppers" they broke as soon as the catalogue
+  // was thinned, in a suite that has nothing to do with either.
+  {
+    const ahead=pick(RM,function(r){
+      return r.steps.some(function(s){return s.ahead})&&
+        ctx.recipesInPlay('how long does '+r.t+' take').length===1;},
+      'a make-ahead dish that can be named unambiguously');
+    eq('timing includes the make-ahead split',
+      /can be done ahead/.test(la('how long does '+ahead.t+' take').text),true);
+
+    const any=pick(RM,function(r){
+      return r.steps.length>1&&ctx.recipesInPlay('the steps for '+r.t).length===1;},
+      'a dish with several steps that can be named unambiguously');
+    eq('steps are listed in order',
+      la('what are the steps for '+any.t).text.indexOf('1. '+any.steps[0].t)>=0,true);
+    eq('ingredients can be listed',
+      la('whats in '+any.t).text.toLowerCase()
+        .indexOf(any.ing[0].n.toLowerCase())>=0,true);
+  }
 
   eq('an ingredient question returns recipes',
     la('what can I make with chicken and rice').recipe_ids.length>0,true);
@@ -223,11 +249,10 @@ eq('and clicking opens it in Discover',/jumpToRecipe/.test(html),true);
   // what stops "something impressive" being reported as a missing ingredient,
   // and a test word outside it would prove nothing.
   const isFood=G('looksLikeFood');
-  const pick=list=>list.find(w=>isFood(w)&&!inCatalogue(w));
-  const absentFish=pick(['abalone','cuttlefish','langoustine','turbot','whelk','cockle']);
-  const absentMeat=pick(['venison','pheasant','partridge','quail','hare']);
-  eq('there is a seafood the catalogue does not have',!!absentFish,true);   // canary
-  eq('and a meat',!!absentMeat,true);                                       // canary
+  const absentFish=absentWord(RM,
+    ['abalone','cuttlefish','langoustine','turbot','whelk','cockle','crayfish','swordfish'],isFood);
+  const absentMeat=absentWord(RM,
+    ['venison','pheasant','partridge','quail','hare','goat','guinea fowl'],isFood);
   {
     const a=la('what can I make with '+absentFish);
     eq('it says so plainly',

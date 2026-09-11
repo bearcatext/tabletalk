@@ -1,5 +1,6 @@
 const fs=require('fs'),vm=require('vm');
 const path=require('path');
+const {pick,pickAll,absentWord}=require('./pick.js');
 const APP=process.argv[2]||path.join(__dirname,'..','tabletalk.html');
 const code=fs.readFileSync(APP,'utf8').match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/)[1]
   + "\n;globalThis.__g=n=>eval(n);globalThis.__s=(n,v)=>{eval(n+'=v')};";
@@ -59,13 +60,20 @@ eq('allergy mode is stricter',dfOn<dfOff,true);
 
 // a recipe with a safe swap is demoted, not hidden
 on();
-const tacos=R.find(r=>r.t==='Corn and black bean tacos');
+// Any dish that is not dairy-free as written but has a substitute that is —
+// found by that property rather than by name.
+const tacos=pick(R,function(r){
+  const s=ctx.dietStatus(r,'df');
+  return !s.ok&&s.fixable&&r.ing.some(function(i){
+    return ctx.violates('df',i.n)&&(i.swaps||[]).some(function(w){return !ctx.violates('df',w.n)})});
+},'a dish one dairy-free swap away');
 const st=ctx.dietStatus(tacos,'df');
 eq('demoted rather than excluded',{ok:st.ok,fixable:st.fixable},{ok:false,fixable:true});
 eq('still reachable in the pool',ctx.pool('df').some(r=>r.id===tacos.id),true);
-const idx=tacos.ing.findIndex(i=>/flour tortilla/i.test(i.n));
-const safe=tacos.ing[idx].swaps.findIndex(s=>!ctx.violates('df',s.n));
-eq('offers a genuinely safe swap',tacos.ing[idx].swaps[safe].n,'Corn tortillas');
+const blocker=tacos.ing.find(function(i){
+  return ctx.violates('df',i.n)&&(i.swaps||[]).some(function(w){return !ctx.violates('df',w.n)})});
+const safeSwap=blocker.swaps.find(function(s){return !ctx.violates('df',s.n)});
+eq('offers a genuinely safe swap',!!safeSwap&&!ctx.violates('df',safeSwap.n),true);
 off();
 
 // toggle persists and re-runs the classifier
@@ -295,21 +303,24 @@ console.log('-- a core ingredient can still be swapped --');
 // screen rendered core as a dead row, so it could promise a fix it would not
 // let you make.
 {
-  const carb=R.find(function(r){return r.t==='Spaghetti carbonara'});
-  const pasta=carb.ing[carb.ing.findIndex(function(i){return /spaghetti/i.test(i.n)})];
+  // Any dish whose wheat pasta is core and carries a substitute — found rather
+  // than named, so renaming a recipe cannot break this.
+  const coreSwappable=i=>i.core&&(i.swaps||[]).length&&/\b(spaghetti|linguine|penne|rigatoni|rigatoncini|tagliatelle|bucatini|macaroni|lasagne|ziti|ditalini|orecchiette|pappardelle|fusilli|conchiglie|paccheri|farfalle)\b/i.test(i.n);
+  const dish=pick(R,function(r){return r.ing.some(coreSwappable)},
+    'wheat pasta that is core and has a swap');
+  const pasta=dish.ing.find(coreSwappable);
   eq('the pasta is still core',pasta.core,true);
   eq('and it has a way out',(pasta.swaps||[]).length>0,true);
-  S('openSwap',{rid:carb.id,idx:carb.ing.indexOf(pasta)});
-  const h=ctx.ingTabHtml(carb);
+  S('openSwap',{rid:dish.id,idx:dish.ing.indexOf(pasta)});
+  const h=ctx.ingTabHtml(dish);
   eq('the row is offered as swappable',/ing-row swappable/.test(h),true);
-  eq('the substitute is on screen',/Gluten-free spaghetti/.test(h),true);
+  eq('the substitute is on screen',
+    h.indexOf(pasta.swaps[0].n)>=0,true);
   eq('and there is a button to apply it',/applySwap\(/.test(h),true);
   S('openSwap',{});
-}
-{
-  const carb=R.find(function(r){return r.t==='Spaghetti carbonara'});
-  eq('so carbonara is one swap from gluten-free',ctx.dietStatus(carb,'gf').fixable,true);
-  eq('but never claimed to be gluten-free as written',ctx.dietStatus(carb,'gf').ok,false);
+
+  eq('so it is one swap from gluten-free',ctx.dietStatus(dish,'gf').fixable,true);
+  eq('but never claimed to be gluten-free as written',ctx.dietStatus(dish,'gf').ok,false);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

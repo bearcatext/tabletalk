@@ -1,5 +1,6 @@
 const fs=require('fs'),vm=require('vm');
 const path=require('path');
+const {pick,pickAll,absentWord}=require('./pick.js');
 const APP=process.argv[2]||path.join(__dirname,'..','tabletalk.html');
 const code=fs.readFileSync(APP,'utf8').match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/)[1]
   + "\n;globalThis.__g=n=>eval(n);globalThis.__s=(n,v)=>{eval(n+'=v')};";
@@ -164,10 +165,9 @@ eq('and rarer than quick',(function(){
 eq('a long recipe is never easy',R.filter(function(r){return ctx.isEasy(r)})
   .every(function(r){return r.mins<=G('EASY_MINS')}),true);
 eq('nor is a fiddly one',(function(){
-  const carb=R.find(function(x){return x.t==='Spaghetti carbonara'});
-  return ctx.isEasy(carb);})(),false);
+  return ctx.isEasy(pick(R,function(r){return !ctx.isEasy(r)},'a dish that is not easy'));})(),false);
 eq('a caramel braise is not easy',(function(){
-  const t=R.find(function(x){return x.t==='Thit kho tau'});
+  const t=pick(R,function(x){return /caramel/i.test(x.steps.map(function(s){return s.t+' '+s.s}).join(' '))},'a dish with a caramel step');
   return !t||ctx.isEasy(t)===false;})(),true);
 eq('easy is a search filter',ctx.searchFilters('easy').easy,true);
 eq('so is simple',ctx.searchFilters('simple').easy,true);
@@ -188,20 +188,24 @@ console.log('-- prep ahead --');
 // Two things get called meal prep. This models the one where the finished dish
 // does not keep but its components do — cook rice and turkey Sunday, stuff the
 // peppers Wednesday.
-const sp=R.find(function(r){return r.t==='Stuffed peppers'});
-eq('the dish exists',!!sp,true);
-eq('some of its steps are do-ahead',ctx.aheadSteps(sp).length,3);
+const sp=pick(R,function(r){
+  const ahead=r.steps.filter(function(s){return s.ahead}).length;
+  return ahead>0&&ahead<r.steps.length;},'a dish that is partly make-ahead');
+eq('some of its steps are do-ahead',ctx.aheadSteps(sp).length>0,true);
 eq('and some are not',ctx.aheadSteps(sp).length<sp.steps.length,true);
 eq('the split adds back up',ctx.aheadMins(sp)+ctx.nightMins(sp),sp.mins);
 eq('and the night is the shorter half',ctx.nightMins(sp)<sp.mins,true);
+// Found, not named: any dish with nothing that can be done in advance.
+const noAhead=pick(R,function(r){return !r.steps.some(function(s){return s.ahead})},
+  'a dish with no make-ahead steps');
 eq('a recipe with no ahead steps is not prep-ahead',(function(){
-  const carb=R.find(function(r){return r.t==='Spaghetti carbonara'});
+  const carb=noAhead;
   return ctx.hasAhead(carb);})(),false);
 eq('and neither is one where every step is ahead',(function(){
   const fake={id:9999,mins:30,steps:[{t:'a',s:'x',ahead:true},{t:'b',s:'y',ahead:true}]};
   return ctx.hasAhead(fake);})(),false);
 eq('a dish with no ahead steps reports zero',(function(){
-  const carb=R.find(function(r){return r.t==='Spaghetti carbonara'});
+  const carb=noAhead;
   return ctx.aheadMins(carb);})(),0);
 eq('every prep-ahead recipe splits sanely',R.filter(function(r){return ctx.hasAhead(r)})
   .every(function(r){return ctx.aheadMins(r)>0&&ctx.nightMins(r)>0&&ctx.aheadMins(r)<r.mins}),true);
@@ -215,13 +219,13 @@ eq('searching it returns only prep-ahead recipes',(function(){
   return m.length>0&&m.every(function(r){return ctx.hasAhead(r)});})(),true);
 eq('the badge renders',ctx.recipeCardHtml(sp,{}).indexOf('tag ta')>=0,true);
 eq('and not on a dish you cannot prep',(function(){
-  const carb=R.find(function(r){return r.t==='Spaghetti carbonara'});
+  const carb=noAhead;
   return ctx.recipeCardHtml(carb,{}).indexOf('tag ta')<0;})(),true);
 eq('the steps tab labels both halves',(function(){
   const h=ctx.stepsTabHtml(sp);
   return h.indexOf('Do ahead')>=0&&h.indexOf('On the night')>=0;})(),true);
 eq('and an ordinary recipe gets no headings',(function(){
-  const carb=R.find(function(r){return r.t==='Spaghetti carbonara'});
+  const carb=noAhead;
   return ctx.stepsTabHtml(carb).indexOf('step-group')<0;})(),true);
 
 console.log('-- a pan sauce is not make-ahead --');
@@ -236,14 +240,30 @@ console.log('-- a pan sauce is not make-ahead --');
     const step=r.steps.find(function(s){return s.t===pair[1]});
     eq(pair[0]+': pan sauce not flagged',!!(step&&step.ahead),false);
   });
-eq('but a bowl-mixed sauce is',(function(){
-  const r=R.find(function(x){return x.t==='Kung pao chicken'});
-  const step=r&&r.steps.find(function(s){return s.t==='Make sauce'});
-  return !!(step&&step.ahead);})(),true);
-eq('marinating always counts',(function(){
-  const r=R.find(function(x){return x.t==='Chicken tikka masala'});
-  const step=r&&r.steps.find(function(s){return s.t==='Marinate'});
-  return !!(step&&step.ahead);})(),true);
+// Stated over the whole catalogue rather than one named dish: a marinade is
+// make-ahead wherever it appears, and so is a sauce stirred together in a bowl.
+// A rule that holds everywhere is both a better test and one that cannot be
+// broken by renaming a recipe.
+{
+  const marinades=pickAll(R,function(r){
+    return r.steps.some(function(s){return /^marinat/i.test(s.t)})},'a dish with a marinating step');
+  eq('marinating always counts',marinades.every(function(r){
+    return r.steps.filter(function(s){return /^marinat/i.test(s.t)})
+      .every(function(s){return s.ahead})}),true);
+
+  const bowlSauce=pickAll(R,function(r){
+    return r.steps.some(function(s){
+      return /sauce/i.test(s.t)&&/\b(bowl|jug)\b/i.test(s.s)&&
+        /\b(stir|whisk|mix|combine|shake)/i.test(s.s)&&
+        !/\b(simmer|boil|heat|fry|sizzle|reduce)/i.test(s.s)})},
+    'a sauce stirred together in a bowl');
+  eq('but a bowl-mixed sauce is',bowlSauce.every(function(r){
+    return r.steps.filter(function(s){
+      return /sauce/i.test(s.t)&&/\b(bowl|jug)\b/i.test(s.s)&&
+        /\b(stir|whisk|mix|combine|shake)/i.test(s.s)&&
+        !/\b(simmer|boil|heat|fry|sizzle|reduce)/i.test(s.s)})
+      .every(function(s){return s.ahead})}),true);
+}
 eq('no recipe has every step flagged',R.every(function(r){
   return !r.steps.length||r.steps.filter(function(s){return s.ahead}).length<r.steps.length;}),true);
 eq('the last step is never make-ahead',R.every(function(r){

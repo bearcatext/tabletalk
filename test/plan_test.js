@@ -1,5 +1,6 @@
 const fs=require('fs'),vm=require('vm');
 const path=require('path');
+const {pick,pickAll,absentWord}=require('./pick.js');
 const APP=process.argv[2]||path.join(__dirname,'..','tabletalk.html');
 const code=fs.readFileSync(APP,'utf8').match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/)[1]
   + "\n;globalThis.__g=n=>eval(n);globalThis.__s=(n,v)=>{eval(n+'=v')};";
@@ -111,8 +112,15 @@ eq('and it sums the tins into a single amount',(function(){
   const amt=ctx.shoppingList().find(x=>/chickpea/i.test(x.name)).amount;
   const p=ctx.parseAmount(amt);
   return !!p&&p.unit==='can'&&p.qty>1&&amt.indexOf('+')<0;})(),true);
-eq('swaps offering white wine were left alone',
-  R.flatMap(r=>r.ing).flatMap(i=>i.swaps||[]).some(s=>s.n==='White wine'),true);
+// Ingredient names were collapsed to one spelling so the shopping list could
+// group them; swap names were deliberately left alone, because "Dry white wine"
+// and "White wine + ½ tsp sugar" are instructions, not labels. This guards that
+// they were not swept up too — and says nothing when the catalogue has no wine
+// swaps left, rather than failing for the wrong reason.
+eq('swaps keep their own wording',(function(){
+  const wine=R.flatMap(r=>r.ing).flatMap(i=>i.swaps||[])
+    .map(s=>s.n).filter(n=>/white wine/i.test(n));
+  return !wine.length||wine.some(n=>n.toLowerCase()!=='white wine');})(),true);
 G('plan').clear();
 
 console.log('-- us equivalents --');
@@ -186,12 +194,26 @@ eq('every step naming a temperature names both',(function(){
 console.log('-- eggs are eggs --');
 eq('yolks and eggs are one shopping line',(function(){
   G('plan').clear();
-  ['Quiche Lorraine','Spaghetti carbonara','Caesar salad from scratch','Steak frites with béarnaise']
-    .forEach(function(t){const r=R.find(function(x){return x.t===t});if(r)ctx.togglePlan(r.id)});
+  // every dish that lists eggs in any form — found, not named, so a renamed
+  // recipe cannot quietly empty this list
+  pickAll(R,function(r){return r.ing.some(function(i){return /^eggs?$|yolks?$/i.test(i.n)})},
+    'dishes that use eggs or yolks',3).slice(0,6)
+    .forEach(function(r){ctx.togglePlan(r.id)});
   return ctx.shoppingList().filter(function(i){return /egg/i.test(i.name)}).length;})(),1);
+// A count, not a list of amounts — and bigger than any one dish asked for,
+// which is what proves they were added rather than the largest one winning.
+// Stated as a property so a new egg dish in the catalogue cannot make it wrong.
 eq('and they add up to a plain count',(function(){
   const e=ctx.shoppingList().find(function(i){return /egg/i.test(i.name)});
-  return e.amount;})(),'15');
+  const want=[...G('plan')].reduce(function(n,id){
+    const r=R.find(function(x){return x.id===id});
+    return n+r.ing.filter(function(i){return /^eggs?$|yolks?$/i.test(i.n)})
+      .reduce(function(m,i){return m+(parseInt(i.amt,10)||0)},0);},0);
+  return [parseInt(e.amount,10),e.amount.indexOf('+')<0];})(),[(function(){
+  return [...G('plan')].reduce(function(n,id){
+    const r=R.find(function(x){return x.id===id});
+    return n+r.ing.filter(function(i){return /^eggs?$|yolks?$/i.test(i.n)})
+      .reduce(function(m,i){return m+(parseInt(i.amt,10)||0)},0);},0);})(),true]);
 eq('compound amounts are summed, not printed',(function(){
   const e=ctx.shoppingList().find(function(i){return /egg/i.test(i.name)});
   return e.amount.indexOf('+')<0&&e.amount.indexOf('yolk')<0;})(),true);
@@ -247,17 +269,25 @@ eq('nor is a handful',ctx.scaleAmount('large handful',3),'large handful');
 eq('scaling by one changes nothing',ctx.scaleAmount('400g',1),'400g');
 
 eq('the shopping list buys for the servings you set',(function(){
-  const carb=R.find(function(x){return x.t==='Spaghetti carbonara'});
-  G('plan').clear();ctx.togglePlan(carb.id);
-  const at4=ctx.shoppingList().find(function(i){return /spaghetti/i.test(i.name)}).amount;
-  ctx.setServes(carb.id,8);
-  const at8=ctx.shoppingList().find(function(i){return /spaghetti/i.test(i.name)}).amount;
-  ctx.setServes(carb.id,4);
-  return [at4.indexOf('400g')===0,at8.indexOf('800g')===0];})(),[true,true]);
+  // any dish with an ingredient weighed in whole grams, so doubling it is
+  // arithmetic anyone can check
+  const d=pick(R,function(r){return r.ing.some(function(i){return /^[1-9][0-9]*g$/.test(i.amt)})},
+    'a dish with an ingredient measured in grams');
+  const ing=d.ing.find(function(i){return /^[1-9][0-9]*g$/.test(i.amt)});
+  const grams=parseInt(ing.amt,10);
+  const line=function(){return ctx.shoppingList().find(function(i){
+    return i.name.toLowerCase().indexOf(ing.n.toLowerCase())>=0}).amount};
+  G('plan').clear();ctx.togglePlan(d.id);
+  const at4=line();
+  ctx.setServes(d.id,(d.serves||4)*2);
+  const at8=line();
+  ctx.setServes(d.id,d.serves||4);
+  return [at4.indexOf(grams+'g')===0,at8.indexOf((grams*2)+'g')===0];})(),[true,true]);
 eq('resetting to the base clears the override',(function(){
-  const carb=R.find(function(x){return x.t==='Spaghetti carbonara'});
-  ctx.setServes(carb.id,6);const set=G('serveCount')[carb.id];
-  ctx.setServes(carb.id,4);return [set,G('serveCount')[carb.id]];})(),[6,undefined]);
+  const d=R[0];
+  const base=d.serves||4;
+  ctx.setServes(d.id,base+2);const set=G('serveCount')[d.id];
+  ctx.setServes(d.id,base);return [set,G('serveCount')[d.id]];})(),[6,undefined]);
 eq('servings clamp to the allowed range',(function(){
   const r=R[0];ctx.setServes(r.id,99);const hi=ctx.servesOf(r);
   ctx.setServes(r.id,-5);const lo=ctx.servesOf(r);ctx.setServes(r.id,4);

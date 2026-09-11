@@ -59,7 +59,11 @@ eq('normalise marks as generated',norm.gen,true);
 const base=G('BASE_RECIPES').length;
 eq('catalogue starts at base',G('ALL_RECIPES').length,base);
 const id=ctx.nextRecipeId();
-eq('next id is max+1',id,base+1);
+// One past the highest id, not one past the count. Those are the same number
+// only while the ids run unbroken from 1, which stops being true the first time
+// a recipe is removed.
+eq('next id is max+1',id,
+  G('ALL_RECIPES').reduce(function(m,r){return Math.max(m,r.id)},0)+1);
 G('generated').push(ctx.normaliseGenerated(good(),id));
 ctx.rebuildCatalogue();
 eq('catalogue grew',G('ALL_RECIPES').length,base+1);

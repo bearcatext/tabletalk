@@ -78,6 +78,13 @@ jobs:
       - name: Tests
         run: node test/run.js
 
+      # This job changes the catalogue, which is exactly what used to break
+      # suites that named the dishes they tested with. Running them against a
+      # thinned catalogue catches a fixture that has quietly become a fact
+      # about one recipe.
+      - name: Tests survive the catalogue changing
+        run: node test/shrink.js
+
       - name: Catalogue
         run: node tools/verify.js tabletalk.html
 
