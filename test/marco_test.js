@@ -209,29 +209,42 @@ eq('and clicking opens it in Discover',/jumpToRecipe/.test(html),true);
   eq('rather than guessing',la('surprise me'),null);
 
   // Asked for scallops, Marco parsed the question perfectly, found that none of
-  // the 284 recipes use them, and replied "name an ingredient, a dish, or say
-  // what you fancy" — which is exactly what had just been done. The catalogue
-  // not having something is an answer, and it needs no proxy to give it.
-  eq('there really are no scallops to find',                      // canary
-    RM.some(function(r){return /scallop/i.test(r.t+' '+r.ing.map(function(i){return i.n}).join(' '))}),false);
+  // the recipes used them, and replied "name an ingredient, a dish, or say what
+  // you fancy" — which is exactly what had just been done. The catalogue not
+  // having something is an answer, and it needs no proxy to give it.
+  //
+  // The missing ingredient is found rather than named. Written as "scallops"
+  // these assertions passed until scallops were added to the catalogue, at
+  // which point six of them failed for the one reason that was not a bug.
+  const inCatalogue=w=>RM.some(function(r){
+    return new RegExp(w,'i').test(r.t+' '+r.ing.map(function(i){return i.n}).join(' '))});
+  const SEA=/salmon|prawn|shrimp|cod|sole|tuna|squid|crab|mussel|sea bass|scallop|fish/i;
+  // It also has to be a word the app recognises as food at all — that guard is
+  // what stops "something impressive" being reported as a missing ingredient,
+  // and a test word outside it would prove nothing.
+  const isFood=G('looksLikeFood');
+  const pick=list=>list.find(w=>isFood(w)&&!inCatalogue(w));
+  const absentFish=pick(['abalone','cuttlefish','langoustine','turbot','whelk','cockle']);
+  const absentMeat=pick(['venison','pheasant','partridge','quail','hare']);
+  eq('there is a seafood the catalogue does not have',!!absentFish,true);   // canary
+  eq('and a meat',!!absentMeat,true);                                       // canary
   {
-    const a=la('what can I make with scallops');
-    eq('it says so plainly',/nothing in your \d+ recipes uses scallops/i.test(a.text),true);
+    const a=la('what can I make with '+absentFish);
+    eq('it says so plainly',
+      new RegExp('nothing in your \\d+ recipes uses '+absentFish,'i').test(a.text),true);
     eq('and offers the nearest thing it does have',a.recipe_ids.length>0,true);
-    eq('which really is seafood',a.recipe_ids.every(function(id){
-      const r=RM.find(function(x){return x.id===id});
-      return r.ing.some(function(i){return /salmon|prawn|shrimp|cod|sole|tuna|squid|crab|mussel|sea bass|fish/i.test(i.n)});
-    }),true);
     // Fish sauce is a flavouring, not a seafood dish. It put a Thai omelette at
     // the top of the list of things closest to a scallop.
-    eq('and not a dish that merely contains fish sauce',a.recipe_ids.every(function(id){
+    eq('which really is seafood, not a dish seasoned with it',a.recipe_ids.every(function(id){
       const r=RM.find(function(x){return x.id===id});
-      return r.ing.some(function(i){return /salmon|prawn|shrimp|cod|sole|tuna|squid|crab|mussel|sea bass|fish/i.test(i.n)&&!/sauce|stock|paste/i.test(i.n)});
+      return r.ing.some(function(i){return SEA.test(i.n)&&!/sauce|stock|paste/i.test(i.n)});
     }),true);
   }
-  eq('the same for meat',/nothing in your \d+ recipes uses venison/i.test(la('venison').text),true);
+  eq('the same for meat',
+    new RegExp('nothing in your \\d+ recipes uses '+absentMeat,'i').test(la(absentMeat).text),true);
   eq('two missing things at once read as one sentence',
-    /uses scallops or venison/i.test(la('scallops and venison').text),true);
+    new RegExp('uses '+absentFish+' or '+absentMeat,'i')
+      .test(la(absentFish+' and '+absentMeat).text),true);
   // The loose matcher will always find something: "do you have anything with
   // samphire" scored eight recipes on the word "you" and offered smash burgers.
   eq('a flat no beats a loose match',
@@ -242,22 +255,51 @@ eq('and clicking opens it in Discover',/jumpToRecipe/.test(html),true);
   // A plural typed into the box is not a missing ingredient. "pastas that
   // include scallops" reported pasta missing from a catalogue with thirteen
   // pasta dishes in it.
+  eq('there are pasta dishes to be found',inCatalogue('pasta'),true);       // canary
   eq('a plural still finds the singular',
-    /uses scallops\.$/i.test(la('pastas that include scallops').text.split(' The ')[0]),true);
+    new RegExp('uses '+absentFish+'\\.$','i')
+      .test(la('pastas that include '+absentFish).text.split(' The ')[0]),true);
 
   console.log('-- and an offer to write what is missing --');
   // The offer used to depend on the model setting suggest_generate, so it never
   // appeared when the model was the unreachable thing — which is exactly when a
-  // dead end is most likely. The catalogue knows it has no scallops unaided.
+  // dead end is most likely. The catalogue knows what it has not got unaided.
   {
-    const o=la('grilled scallop recipes').offer;
+    const askedFor='grilled '+absentFish+' recipes';
+    const o=la(askedFor).offer;
     eq('a dead end comes with an offer',!!o,true);
-    eq('and the brief is what was asked for',o.brief,'grilled scallop recipes');
+    eq('and the brief is what was asked for',o.brief,askedFor);
     eq('with no cuisine invented for it',o.cuisine,'');
-    // "what can I make with scallops" is three layers of question over one ask
-    eq('the question is peeled off the brief',la('what can I make with scallops').offer.brief,'scallops');
+    // "what can I make with X" is three layers of question over one ask
+    eq('the question is peeled off the brief',
+      la('what can I make with '+absentFish).offer.brief,absentFish);
     eq('a judgement question still offers nothing',la('surprise me'),null);
   }
+  console.log('-- the ask is written down before anything is tried --');
+  // Writing recipes needs the model, and the model is reachable from a desktop
+  // running the proxy and from nowhere else. On a phone the offer button can
+  // only fail, so the ask is recorded first and survives to be run through the
+  // scheduled job instead of being lost with the tap.
+  {
+    const q=G('requests');
+    const before=q.length;
+    const a=ctx.recordRequest('grilled langoustines','');
+    eq('the ask is kept',G('requests').length,before+1);
+    eq('with the words that were asked',a.brief,'grilled langoustines');
+    eq('and nothing written yet',a.done,false);
+    ctx.recordRequest('Grilled Langoustines','');
+    eq('asking twice does not queue it twice',G('requests').length,before+1);
+    ctx.recordRequest('   ','');
+    eq('and an empty ask is not an ask',G('requests').length,before+1);
+    eq('it is written to storage, not just held in memory',
+      JSON.parse(store[ctx.pkey('dw_requests')]).some(function(r){
+        return r.brief==='grilled langoustines'}),true);
+    eq('the queue is one of the things a profile owns',
+      G('DW_KEYS').indexOf('dw_requests')>=0,true);
+    ctx.dropRequest(G('requests').findIndex(function(r){return r.brief==='grilled langoustines'}));
+    eq('and it can be forgotten',G('requests').length,before);
+  }
+
   // Asked for a dish, a single recipe is not a choice.
   eq('a brief is worth a couple of recipes',
     /^Write 2 new recipes/.test(ctx.generatePrompt('','grilled scallops')),true);

@@ -497,6 +497,15 @@ body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:1
 .marco-send:hover{opacity:.75}
 .marco-send i{font-size:14px}
 
+/* Recipe requests waiting to be written */
+.req-panel{background:var(--plum-s);border:1px solid var(--plum-b);border-radius:var(--rl);padding:12px 14px;margin-bottom:12px}
+.req-head{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--plum);margin-bottom:8px}
+.req-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--plum-b)}
+.req-brief{flex:1;min-width:0;font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.req-btn{flex:0 0 auto;background:var(--card);border:1px solid var(--plum-b);color:var(--plum);font-family:var(--fb);font-size:11px;font-weight:600;padding:5px 10px;border-radius:7px;cursor:pointer;min-height:30px}
+.req-btn:hover{background:#e2d2d9}
+.req-foot{font-size:11px;color:var(--ink3);margin-top:8px;line-height:1.5}
+.req-foot a{color:var(--plum);font-weight:600}
 .marco-reply{background:var(--card);border:1px solid var(--border);border-radius:var(--rl);padding:14px 16px;margin-bottom:10px;font-size:13px;color:var(--ink2);line-height:1.65;animation:fadeUp .2s ease both}
 /* Marco transcript */
 #marco-reply-area-bar{max-height:46vh;overflow-y:auto}
@@ -5314,6 +5323,64 @@ const BASE_RECIPES = [
      {t:"Cook the prawns",s:"Add prawns and toss over high heat for 4-5 minutes until pink and coated in glossy sauce.",tip:"Once they curl into a tight C they're done; any longer and they turn rubbery."},
      {t:"Finish",s:"Grind over the pepper, scatter spring onions and serve straight from the pan with rice."},
    ]},
+
+  // SCALLOPS
+  // Three ways to cook the same thing, because the technique is the dish. All
+  // three start by getting them dry and end before you think they are done:
+  // a scallop goes from sweet to rubber in about thirty seconds.
+  {id:285,e:"🐚",t:"Grilled scallops with lemon and oregano",c:"Mediterranean",mins:15,cals:250,rating:4.7,serves:4,desc:"Ninety seconds a side over fierce heat, dressed off the grill.",
+   ing:[
+     {n:"King scallops",amt:"600g (about 12), shelled",emoji:"🐚",core:true},
+     {n:"Olive oil",amt:"3 tbsp",emoji:"🥫",core:true},
+     {n:"Lemon",amt:"2",emoji:"🍋",core:true},
+     {n:"Garlic",amt:"2 cloves, crushed",emoji:"🧄",core:false,swaps:[{n:"Shallot, minced",amt:"1 small",note:"sweeter, less pungent"},{n:"Omit",amt:"—",note:"lets the scallop and lemon carry it alone"}]},
+     {n:"Dried oregano",amt:"1 tsp",emoji:"🌿",core:false,swaps:[{n:"Fresh thyme",amt:"2 tsp, leaves",note:"greener, more resinous"},{n:"Dried marjoram",amt:"1 tsp",note:"softer, sweeter"}]},
+     {n:"Flat-leaf parsley",amt:"handful, chopped",emoji:"🌿",core:false,swaps:[{n:"Fresh dill",amt:"handful",note:"grassier, cuts the richness"},{n:"Mint",amt:"small handful",note:"sharper, more surprising"}]},
+   ],
+   steps:[
+     {t:"Dry them, and find the muscle",s:"Pat the scallops completely dry. Pull off the small opaque tab on the side of each one — it stays tough however you cook it.",tip:"A wet scallop steams instead of browning. Ten minutes uncovered on kitchen paper is not wasted time."},
+     {t:"Get the grill properly hot",s:"Heat a griddle pan or the barbecue until a drop of water skitters and vanishes. It has to be hotter than feels sensible."},
+     {t:"Oil the scallops, not the grill",s:"Toss them in 1 tbsp of the oil and season with salt just before they go on.",tip:"Salt any earlier draws water out and you are back to steaming. Oil on the bars burns off before the scallops arrive."},
+     {t:"Ninety seconds a side",s:"Lay them down and leave them alone. Turn once they lift cleanly with a dark bar across them, and give the second side the same.",tip:"If it sticks it is not ready to turn. Three minutes total is the outside limit for a scallop this size."},
+     {t:"Dress off the heat",s:"Stir the remaining oil with the garlic, oregano and the juice of one lemon. Spoon it over the hot scallops and scatter the parsley.",tip:"Dressing them on the plate rather than in the pan keeps the crust you just worked for."},
+     {t:"Serve",s:"Cut the second lemon into wedges and put them on the table."},
+   ]},
+
+  {id:286,e:"🐚",t:"Seared scallops with brown butter and capers",c:"French",mins:15,cals:300,rating:4.8,serves:4,desc:"A hard crust on one side, nutty butter and capers over the top.",
+   ing:[
+     {n:"King scallops",amt:"600g (about 12), shelled",emoji:"🐚",core:true},
+     {n:"Butter",amt:"60g",emoji:"🧈",core:true},
+     {n:"Neutral oil",amt:"1 tbsp",emoji:"🥫",core:true},
+     {n:"Capers",amt:"2 tbsp, drained",emoji:"🥫",core:false,swaps:[{n:"Cornichons, chopped",amt:"3 tbsp",note:"crunchier, sharper"},{n:"Green olives, chopped",amt:"3 tbsp",note:"rounder, less briny bite"}]},
+     {n:"Lemon",amt:"1",emoji:"🍋",core:true},
+     {n:"Flat-leaf parsley",amt:"handful, chopped",emoji:"🌿",core:false,swaps:[{n:"Chives, snipped",amt:"handful",note:"milder, more oniony"},{n:"Chervil",amt:"handful",note:"delicate, faintly aniseed"}]},
+   ],
+   steps:[
+     {t:"Dry them, and find the muscle",s:"Pat the scallops bone dry and pull off the tough side tab. Season with salt only as they go into the pan.",tip:"Everything about a seared scallop is decided before it touches the heat. Dry is the whole trick."},
+     {t:"Oil first, not butter",s:"Heat the oil in a heavy pan over high heat until it shimmers and just begins to smoke.",tip:"Butter would burn long before the crust forms. It goes in later, when the pan comes down."},
+     {t:"Two batches, one layer",s:"Lay in half the scallops with space around each one. Leave them for 2 minutes without touching them, then turn and give 30 seconds more. Repeat.",tip:"Crowding drops the pan temperature and they poach in their own liquid. Six at a time in a 28cm pan."},
+     {t:"Brown the butter",s:"Take the pan off the heat, let it cool for a few seconds, then add the butter and swirl until it foams, smells nutty and turns hazelnut brown.",tip:"On the heat in a pan that hot the butter goes from nutty to burnt in about ten seconds."},
+     {t:"Capers and lemon",s:"Stir in the capers and the juice of the lemon — it will hiss and pull the butter into a sauce."},
+     {t:"Serve",s:"Spoon the butter over the scallops, scatter parsley, and eat them straight away."},
+   ]},
+
+  {id:287,e:"🐚",t:"Butter-soy scallops",c:"Japanese",mins:12,cals:240,rating:4.7,serves:4,desc:"Hotate bata-shoyu — seared hard, glazed off the heat so the soy cannot scorch.",
+   ing:[
+     {n:"King scallops",amt:"600g (about 12), shelled",emoji:"🐚",core:true},
+     {n:"Butter",amt:"30g",emoji:"🧈",core:true},
+     {n:"Soy sauce",amt:"2 tbsp",emoji:"🥫",core:true},
+     {n:"Mirin",amt:"1 tbsp",emoji:"🥫",core:false,swaps:[{n:"Sake plus 1 tsp sugar",amt:"1 tbsp",note:"drier, less syrupy"},{n:"Dry sherry plus 1 tsp sugar",amt:"1 tbsp",note:"nuttier, a little sharper"}]},
+     {n:"Neutral oil",amt:"1 tbsp",emoji:"🥫",core:true},
+     {n:"Spring onions",amt:"2, sliced thin",emoji:"🌱",core:false,swaps:[{n:"Chives, snipped",amt:"handful",note:"softer, less bite"},{n:"Shiso, shredded",amt:"4 leaves",note:"herbal and faintly minty"}]},
+   ],
+   steps:[
+     {t:"Dry them, and find the muscle",s:"Pat the scallops dry and pull off the tough side tab. Do not salt them — the soy is the seasoning."},
+     {t:"Sear hard",s:"Heat the oil in a heavy pan over high heat until it shimmers, then sear the scallops in two batches, 2 minutes on the first side and 30 seconds on the second. Lift them onto a plate.",tip:"They come out a shade underdone on purpose. They finish in the glaze."},
+     {t:"Mix the glaze",s:"Stir the soy and mirin together in a cup while the pan is still going."},
+     {t:"Glaze off the heat",s:"Take the pan off the heat, drop in the butter and pour in the soy and mirin. Swirl until it thickens to a syrup.",tip:"Soy in a smoking pan turns bitter and acrid in seconds. Off the heat it reduces gently into a glaze instead."},
+     {t:"Return and coat",s:"Tip the scallops and any juices back in and turn them through the glaze for 30 seconds."},
+     {t:"Serve",s:"Scatter the spring onions and serve with plain rice."},
+   ]},
 ];
 
 // Live catalogue: base recipes plus anything generated. Reassigned by
@@ -5371,7 +5438,7 @@ const RAW_LS=(()=>{
 // with. It is a door you have to mean to open, not a lock.
 const DW_KEYS=['dw_favs','dw_comments','dw_swaps','dw_steps','dw_pantry',
   'dw_generated','dw_hidden','dw_seen','dw_cooked','dw_marco','dw_allergy',
-  'dw_plan','dw_serves','dw_tiers','dw_shared','dw_received'];
+  'dw_plan','dw_serves','dw_tiers','dw_shared','dw_received','dw_requests'];
 let profiles=[], activeProfile=null;
 function saveProfiles(){
   RAW_LS.setItem('tt_profiles',JSON.stringify(profiles));
@@ -5430,6 +5497,7 @@ let generated=JSON.parse(LS.getItem('dw_generated')||'[]');
 // stars, which are a list you curated — you decide what graduates.
 let shared=JSON.parse(LS.getItem('dw_shared')||'[]');
 let received=JSON.parse(LS.getItem('dw_received')||'[]');
+let requests=JSON.parse(LS.getItem('dw_requests')||'[]');
 let hidden=new Set(JSON.parse(LS.getItem('dw_hidden')||'[]'));
 ALL_RECIPES=BASE_RECIPES.concat(generated).concat(received);
 let genNotice=null;
@@ -5497,6 +5565,7 @@ function save(){
   LS.setItem('dw_tiers',JSON.stringify(dietTier));
   LS.setItem('dw_shared',JSON.stringify(shared));
   LS.setItem('dw_received',JSON.stringify(received));
+  LS.setItem('dw_requests',JSON.stringify(requests));
   LS.setItem('dw_plan',JSON.stringify([...plan]));
   LS.setItem('dw_serves',JSON.stringify(serveCount));
 }
@@ -6424,6 +6493,35 @@ function hiddenNoticeHtml(){
     <button onclick="unhideAll()">show ${hidden.size===1?'it':'them'} again</button></div>`;
 }
 
+// Asks that are still waiting to be written. They cannot be written here — the
+// key is in the repository, not in the app — so this hands over the words to
+// paste and the place to paste them, which is a job of about fifteen seconds.
+function requestsHtml(){
+  const open=requests.filter(r=>!r.done);
+  if(!open.length) return '';
+  return `<div class="req-panel">
+    <div class="req-head"><i class="ti ti-notebook"></i>
+      ${open.length} recipe ${open.length===1?'request':'requests'} waiting</div>
+    ${open.map(r=>{
+      const i=requests.indexOf(r);
+      return `<div class="req-row">
+        <span class="req-brief">${esc(r.brief)}</span>
+        <button class="req-btn" onclick="copyRequest(${i})">Copy</button>
+        <button class="req-btn" onclick="dropRequest(${i})" aria-label="Forget this request">×</button>
+      </div>`}).join('')}
+    <div class="req-foot">Paste one into <a href="${ACTIONS_URL}" target="_blank"
+      rel="noopener">Run workflow</a> on GitHub and it comes back as a pull request.</div>
+  </div>`;
+}
+function copyRequest(i){
+  const r=requests[i];
+  if(!r) return;
+  const done=()=>{genNotice={ok:0,bad:0,error:`Copied “${r.brief}” — paste it into Run workflow.`};renderCards()};
+  if(navigator.clipboard&&navigator.clipboard.writeText)
+    navigator.clipboard.writeText(r.brief).then(done,done);
+  else done();
+}
+
 let generating=false;
 async function generateRecipes(opts){
   if(generating) return;
@@ -6979,7 +7077,7 @@ function renderCards(){
     ${pl>(isSearch?SEARCH_MAX:5)?`<button class="shuffle-btn" onclick="cycleFive()"><i class="ti ti-refresh"></i> ${isSearch?'More matches':'5 more options'}</button>`:''}
     ${canGenerate()?`<button class="shuffle-btn" onclick="generateRecipes()" ${generating?'disabled':''}><i class="ti ti-sparkles"></i> ${generating?'Writing…':'New recipes'}</button>`:''}
     </span>
-  </div>${diets.map(d=>tierRowHtml(d)).join('')}${genNoticeHtml()}${shareNoticeHtml()}${freshNoticeHtml()}${hiddenNoticeHtml()}<div class="cards-grid">`;
+  </div>${diets.map(d=>tierRowHtml(d)).join('')}${genNoticeHtml()}${shareNoticeHtml()}${freshNoticeHtml()}${hiddenNoticeHtml()}${requestsHtml()}<div class="cards-grid">`;
   cards.forEach((r,i)=>{
     h+=recipeCardHtml(r,{delay:i*.05,selected:expandedId===r.id});
     if(expandedId===r.id) h+=detailPanelHtml(r);
@@ -8747,9 +8845,12 @@ function briefFrom(q){
 const NEAR_FAMILIES=[
   {family:'seafood', words:rx(['fish','salmon','trout','cod','haddock','hake','sea bass',
     'sea bream','plaice','sole','sardine','mackerel','tuna','prawn','shrimp','crab',
-    'lobster','clam','mussel','squid','octopus','scallop','anchovy','anchovies'])},
+    'lobster','langoustine','crayfish','clam','mussel','oyster','cockle','whelk',
+    'squid','cuttlefish','octopus','scallop','abalone','anchovy','anchovies',
+    'halibut','turbot','monkfish','pollock','snapper','tilapia','swordfish','eel'])},
   {family:'meat', words:rx(['beef','steak','lamb','mutton','pork','bacon','pancetta',
-    'chicken','turkey','duck','venison','rabbit','veal','sausage','chorizo','ham'])},
+    'chicken','turkey','duck','goose','venison','rabbit','hare','pheasant','partridge',
+    'quail','guinea fowl','veal','goat','sausage','chorizo','ham'])},
 ];
 
 // Is the word a food at all? "Scallops" is, "impressive" is not, and telling
@@ -8867,14 +8968,37 @@ function marcoOfferHtml(m){
   return `<button class="marco-offer" ${generating?'disabled':''} onclick="marcoGenerate(${marcoHistory.indexOf(m)})">
     <i class="ti ti-sparkles"></i>${label}</button>`;
 }
+// The ask is written down before anything is attempted. Writing recipes needs
+// the model, and the model is reachable from a desktop running the proxy and
+// from nowhere else — so on the phone, where this app actually gets used, the
+// button would otherwise fail and the request would be gone. Recorded first, it
+// survives to be run through the scheduled job instead.
+function recordRequest(brief,cuisine){
+  const b=String(brief||'').trim();
+  if(!b) return null;
+  const found=requests.find(r=>r.brief.toLowerCase()===b.toLowerCase());
+  if(found) return found;
+  const req={brief:b,cuisine:(cuisine||'').trim(),at:Date.now(),done:false};
+  requests.push(req);save();
+  return req;
+}
+function dropRequest(i){requests.splice(i,1);save();renderCards();renderMarco()}
+// Where the run is started. The key lives in the repository's secrets and never
+// comes near the app, which is the whole reason this goes the long way round.
+const ACTIONS_URL='https://github.com/bearcatext/tabletalk/actions/workflows/recipes.yml';
+
 async function marcoGenerate(idx){
   const m=marcoHistory[idx];
   if(!m||!m.offer||generating) return;
   // Empty, not "All cuisines" — that was a label no generated recipe could ever
   // match, so validation threw away everything the button produced.
   const cuisine=(m.offer.cuisine||'').trim();
+  const req=recordRequest(m.offer.brief,cuisine);
   m.offer.done=true;save();renderMarco();
+  const before=generated.length;
   await generateRecipes({cuisine,brief:m.offer.brief});
+  if(req&&generated.length>before){req.done=true;save()}
+  renderCards();
 }
 
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
@@ -9292,6 +9416,7 @@ function loadState(){
   dietTier=JSON.parse(LS.getItem('dw_tiers')||'{}');
   shared=JSON.parse(LS.getItem('dw_shared')||'[]');
   received=JSON.parse(LS.getItem('dw_received')||'[]');
+  requests=JSON.parse(LS.getItem('dw_requests')||'[]');
   rebuildCatalogue();
 }
 // Switching person changes every list on screen, so start them back at the

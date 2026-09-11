@@ -13,8 +13,12 @@ on:
     - cron: '0 8 * * 1'      # Mondays, 08:00 UTC
   workflow_dispatch:
     inputs:
+      brief:
+        description: 'What to write, e.g. "grilled scallops" (blank writes for a cuisine instead)'
+        required: false
+        type: string
       cuisine:
-        description: 'Cuisine to write for (blank picks the thinnest)'
+        description: 'Cuisine to write for (blank picks the thinnest, or lets a brief choose)'
         required: false
         type: string
       count:
@@ -40,16 +44,31 @@ jobs:
       - name: Write the recipes
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Through the environment, never interpolated into the script. These
+          # are free text typed by whoever starts the run, and ${{ }} pastes
+          # them in as shell source — a brief of a certain shape would run as a
+          # command with the key already in the environment.
+          BRIEF: ${{ inputs.brief }}
+          CUISINE: ${{ inputs.cuisine }}
+          COUNT: ${{ inputs.count }}
         run: |
           if [ -z "$ANTHROPIC_API_KEY" ]; then
             echo "ANTHROPIC_API_KEY is not set in this repository's Actions secrets."
             exit 1
           fi
+          args=()
+          if [ -n "$BRIEF" ]; then
+            args+=(--brief "$BRIEF")
+            [ -n "$CUISINE" ] && args+=(--cuisine "$CUISINE")
+          elif [ -n "$CUISINE" ]; then
+            args+=(--cuisine "$CUISINE")
+          else
+            args+=(--thinnest)
+          fi
+          args+=(--count "${COUNT:-3}")
           # The run is kept so the pull request can carry the calorie warnings
           # into its body. It contains no key — the generator never echoes one.
-          node tools/generate.js \
-            ${{ inputs.cuisine && format('--cuisine {0}', inputs.cuisine) || '--thinnest' }} \
-            --count ${{ inputs.count || '3' }} | tee /tmp/generate.log
+          node tools/generate.js "${args[@]}" | tee /tmp/generate.log
 
       # Everything the catalogue is held to. A recipe that cannot pass these has
       # no business being proposed, never mind merged.

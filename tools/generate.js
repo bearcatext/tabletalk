@@ -63,15 +63,24 @@ const G = ctx.__g;
 const RECIPES = G('ALL_RECIPES');
 
 // ── which cuisine ────────────────────────────────────────────────────────────
+// A brief is a specific ask — "grilled scallops", "a pasta with clams" — and it
+// is the point of the request queue: someone asked Marco for something the
+// catalogue did not have, and this is where it gets written. Given one, the
+// cuisine is optional and whoever writes the recipe picks what suits the dish.
+const brief = flag('brief', null);
+if (typeof brief === 'boolean') { console.error('--brief needs some words'); process.exit(1); }
 let cuisine = flag('cuisine', null);
-if (flag('thinnest', false) || !cuisine) {
+if (typeof cuisine === 'boolean') cuisine = null;
+if (!cuisine && brief) {
+  cuisine = '';                         // the writer chooses
+} else if (flag('thinnest', false) || !cuisine) {
   const counts = {};
   G('CUISINES').filter(c => c.id !== 'all').forEach(c => { counts[c.id] = 0 });
   RECIPES.forEach(r => { if (r.c in counts) counts[r.c]++ });
   cuisine = Object.keys(counts).sort((a, b) => counts[a] - counts[b])[0];
   console.log(`thinnest cuisine: ${cuisine} (${counts[cuisine]} recipes)`);
 }
-if (!G('CUISINES').some(c => c.id === cuisine)) {
+if (cuisine && !G('CUISINES').some(c => c.id === cuisine)) {
   console.error(`unknown cuisine "${cuisine}"`);
   process.exit(1);
 }
@@ -108,9 +117,9 @@ function callAnthropic(body) {
 const { RECIPE_SCHEMA } = require('./recipe-schema.js');
 
 (async () => {
-  const prompt = ctx.generatePrompt(cuisine, null)
-    .replace(/Write \d+ new/, `Write ${want} new`);
-  console.log(`asking for ${want} ${cuisine} recipes...`);
+  const prompt = ctx.generatePrompt(cuisine, brief, want);
+  console.log(`asking for ${want} ${cuisine || 'any-cuisine'} recipes` +
+    (brief ? `: ${brief}` : '') + '...');
 
   const { status, json } = await callAnthropic({
     model: MODEL,
