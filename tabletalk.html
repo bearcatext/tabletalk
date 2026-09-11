@@ -6261,6 +6261,9 @@ function dismissFreshNotice(){freshNotice=null;renderCards()}
 // ─── RECIPE GENERATION & REMOVAL ─────────────────────────────────────────────
 const GENERATE_ENDPOINT='http://127.0.0.1:8787/generate';
 const MAX_ING=8, MAX_GEN_PER_CALL=3;
+// How many to write when Marco is answering a specific ask — "grilled
+// scallops" deserves a couple of different takes to choose between.
+const BRIEF_RECIPES=2;
 
 // The catalogue is BASE_RECIPES + anything generated, minus anything hidden.
 // Hiding filters at pool() rather than removing from ALL_RECIPES, so favourites
@@ -6298,7 +6301,12 @@ function validateGenerated(o,cuisine){
   // cannot be halved or doubled. Three generated recipes reached the
   // catalogue without it because nothing here asked.
   if(!Number.isFinite(o.serves)||o.serves<1||o.serves>20) return bad('bad serves');
-  if(o.c!==cuisine) return bad(`cuisine "${o.c}" != "${cuisine}"`);
+  // An empty cuisine means the ask did not name one — "grilled scallops" is a
+  // dish, not a region — and the writer picks. Requiring an exact match against
+  // a placeholder like "All cuisines" rejected every recipe it ever produced,
+  // which is what the offer button did whenever Marco did not name a cuisine.
+  if(cuisine&&o.c!==cuisine) return bad(`cuisine "${o.c}" != "${cuisine}"`);
+  if(!cuisine&&!o.c.trim()) return bad('no cuisine');
   if(!Array.isArray(o.ing)||!o.ing.length) return bad('no ingredients');
   if(o.ing.length>MAX_ING) return bad(`${o.ing.length} ingredients (max ${MAX_ING})`);
   if(!Array.isArray(o.steps)||!o.steps.length) return bad('no steps');
@@ -6339,13 +6347,19 @@ function normaliseGenerated(o,id){
   };
 }
 
-function generatePrompt(cuisine,brief){
-  const existing=ALL_RECIPES.filter(r=>r.c===cuisine).map(r=>r.t);
+function generatePrompt(cuisine,brief,count){
+  const existing=cuisine?ALL_RECIPES.filter(r=>r.c===cuisine).map(r=>r.t):[];
   const pantryList=pantry.size?[...pantry].join(', '):null;
   const activeDiet=sel.diets.length===1?dietCat(sel.diets[0]):null;
+  // A brief used to be worth exactly one recipe. Asked for grilled scallops you
+  // want a choice, not a single answer, and two or three different takes are
+  // what makes it worth writing at all.
+  const n=count||(brief?BRIEF_RECIPES:MAX_GEN_PER_CALL);
+  const named=cuisine?cuisine+' ':'';
   let ask=brief
-    ? `Write 1 new ${cuisine} recipe for Tabletalk: ${brief}`
-    : `Write ${MAX_GEN_PER_CALL} new ${cuisine} recipes for Tabletalk.`;
+    ? `Write ${n} new ${named}recipes for Tabletalk: ${brief}`
+      +(cuisine?'':`\nChoose whichever cuisine suits each one, and make them genuinely different from each other rather than three versions of the same dish.`)
+    : `Write ${n} new ${named}recipes for Tabletalk.`;
   if(pantryList) ask+=`\nThe cook already has: ${pantryList}. Lean on these where it suits the dish.`;
   if(activeDiet) ask+=`\nEvery recipe must be ${activeDiet.label.toLowerCase()}.`;
   if(existing.length) ask+=`\n\nDo not repeat any of these existing ${cuisine} dishes:\n${existing.join(', ')}`;
@@ -6414,8 +6428,11 @@ let generating=false;
 async function generateRecipes(opts){
   if(generating) return;
   opts=opts||{};
-  const cuisine=opts.cuisine||soleCuisine()||(ALL_RECIPES.find(r=>r.id===shownIds[0])||{}).c;
-  if(!cuisine) return;
+  // With a brief the dish is the instruction and the cuisine can be left to
+  // whoever writes it. Without one there is nothing to go on, so a cuisine is
+  // still required.
+  const cuisine=opts.cuisine||(opts.brief?'':(soleCuisine()||(ALL_RECIPES.find(r=>r.id===shownIds[0])||{}).c||''));
+  if(!cuisine&&!opts.brief) return;
   generating=true;renderCards();
   try{
     const res=await fetch(GENERATE_ENDPOINT,{
@@ -8677,17 +8694,50 @@ function marcoLocalAnswer(q){
     const list=absent.terms.length===1?absent.terms[0]
       :absent.terms.slice(0,-1).join(', ')+' or '+absent.terms[absent.terms.length-1];
     const none=`Nothing in your ${ALL_RECIPES.length} recipes uses ${list}.`;
+    // And an offer to write some. This used to depend on the model deciding to
+    // set suggest_generate, which means it never appeared when the model was
+    // the thing that was unreachable — exactly when a dead end is most likely.
+    // The catalogue knows it has no scallops without being told.
+    const offer={brief:briefFrom(q),cuisine:''};
     if(absent.near.length)
       return {text:`${none} The closest are the ${absent.family} dishes you do have.`,
-              recipe_ids:absent.near.slice(0,4).map(r=>r.id)};
-    return {text:`${none} Add a recipe puts your own in, and it is searchable from then on.`,
-            recipe_ids:[]};
+              recipe_ids:absent.near.slice(0,4).map(r=>r.id),offer:offer};
+    return {text:`${none} I can write you a couple, or Add a recipe puts your own in.`,
+            recipe_ids:[],offer:offer};
   }
 
   if(cand.list.length)
     return {text:`Nothing matches every part of that, but these come closest.`,
       recipe_ids:cand.list.slice(0,4).map(x=>x.id)};
   return null;
+}
+
+// What to tell the writer, taken from what was actually asked. The question is
+// the brief: "grilled scallops" and "a pasta with scallops in it" want quite
+// different recipes, and only their own words carry that.
+function briefFrom(q){
+  let t=String(q||'').trim().replace(/\?+$/,'');
+  // Peel the question off the front until only the ask is left. Done one layer
+  // at a time because they stack: "what can I make with scallops" is three.
+  const LEADS=[
+    /^(?:hey |hi |ok |okay )/i,
+    /^(?:can|could|would) (?:you|i|we) /i,
+    /^(?:do|did) (?:you|we) have /i,
+    /^(?:have you got|got) /i,
+    /^(?:i(?:'d| would) like|i want|i fancy|show me|find me|give me) /i,
+    /^what(?:'s| is| are)? /i,
+    /^(?:make|cook|do) /i,
+    /^(?:with|using|for) /i,
+    /^(?:any|some|a|an|the) /i,
+    /^(?:recipes?|dishes?|ideas?|options?|something)\s*(?:for|with|using|that|which)?\s*/i,
+  ];
+  for(let again=true;again;){
+    again=false;
+    LEADS.forEach(re=>{const n=t.replace(re,'');if(n!==t){t=n.trim();again=true}});
+  }
+  t=t.trim();
+  if(!t) t=String(q||'').trim();          // never hand over an empty brief
+  return t.length>90?t.slice(0,90).replace(/\s+\S*$/,''):t;
 }
 
 // Close enough to offer instead. Deliberately narrower than the FISH and MEAT
@@ -8726,8 +8776,19 @@ function absentIngredients(q){
   if(!f.terms.length) return empty;
   const hay=r=>(r.t+' '+r.c+' '+(r.desc||'')+' '+r.ing.map(i=>i.n).join(' ')).toLowerCase();
   const shelf=ALL_RECIPES.filter(r=>!hidden.has(r.id));
-  const terms=f.terms.filter(t=>t.length>2&&looksLikeFood(t)&&
-    !shelf.some(r=>hay(r).indexOf(t)>=0));
+  // "pastas" is not in any recipe, but "pasta" is in dozens. Matching the typed
+  // word alone reported pasta missing from a catalogue with 13 pasta dishes in
+  // it, so the singular is tried too.
+  const forms=t=>{
+    const out=[t];
+    if(/ies$/.test(t)) out.push(t.slice(0,-3)+'y');
+    if(/es$/.test(t)) out.push(t.slice(0,-2));
+    if(/s$/.test(t)) out.push(t.slice(0,-1));
+    out.push(t+'s');
+    return out.filter(x=>x.length>2);
+  };
+  const known=t=>shelf.some(r=>{const h=hay(r);return forms(t).some(x=>h.indexOf(x)>=0)});
+  const terms=f.terms.filter(t=>t.length>2&&looksLikeFood(t)&&!known(t));
   if(!terms.length) return empty;
   // Only offer neighbours when every missing term belongs to the same family —
   // "scallops and venison" has no single closest thing.
@@ -8809,7 +8870,9 @@ function marcoOfferHtml(m){
 async function marcoGenerate(idx){
   const m=marcoHistory[idx];
   if(!m||!m.offer||generating) return;
-  const cuisine=(m.offer.cuisine||'').trim()||'All cuisines';
+  // Empty, not "All cuisines" — that was a label no generated recipe could ever
+  // match, so validation threw away everything the button produced.
+  const cuisine=(m.offer.cuisine||'').trim();
   m.offer.done=true;save();renderMarco();
   await generateRecipes({cuisine,brief:m.offer.brief});
 }
@@ -8993,7 +9056,8 @@ async function askMarco(fromCook){
     // apologised for.
     const local=marcoLocalAnswer(q);
     if(local){
-      marcoHistory.push({role:"assistant",text:local.text,recipe_ids:local.recipe_ids||[],local:true});
+      marcoHistory.push({role:"assistant",text:local.text,recipe_ids:local.recipe_ids||[],
+        offer:local.offer||null,local:true});
       save();
     } else if(/Failed to fetch|NetworkError|load failed|cut off/i.test(e.message)){
       marcoError="I can look things up in your recipes — name an ingredient, a dish, or "

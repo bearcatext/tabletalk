@@ -239,6 +239,42 @@ eq('and clicking opens it in Discover',/jumpToRecipe/.test(html),true);
   // and the guard that keeps judgement questions out of all this
   eq('an adjective is not a missing ingredient',la('something impressive for guests'),null);
 
+  // A plural typed into the box is not a missing ingredient. "pastas that
+  // include scallops" reported pasta missing from a catalogue with thirteen
+  // pasta dishes in it.
+  eq('a plural still finds the singular',
+    /uses scallops\.$/i.test(la('pastas that include scallops').text.split(' The ')[0]),true);
+
+  console.log('-- and an offer to write what is missing --');
+  // The offer used to depend on the model setting suggest_generate, so it never
+  // appeared when the model was the unreachable thing — which is exactly when a
+  // dead end is most likely. The catalogue knows it has no scallops unaided.
+  {
+    const o=la('grilled scallop recipes').offer;
+    eq('a dead end comes with an offer',!!o,true);
+    eq('and the brief is what was asked for',o.brief,'grilled scallop recipes');
+    eq('with no cuisine invented for it',o.cuisine,'');
+    // "what can I make with scallops" is three layers of question over one ask
+    eq('the question is peeled off the brief',la('what can I make with scallops').offer.brief,'scallops');
+    eq('a judgement question still offers nothing',la('surprise me'),null);
+  }
+  // Asked for a dish, a single recipe is not a choice.
+  eq('a brief is worth a couple of recipes',
+    /^Write 2 new recipes/.test(ctx.generatePrompt('','grilled scallops')),true);
+  eq('and a cuisine is named when there is one',
+    /^Write 2 new Italian recipes/.test(ctx.generatePrompt('Italian','scallop pasta')),true);
+  // "All cuisines" was a label no generated recipe could match, so validation
+  // threw away everything the offer button ever produced.
+  {
+    const good={e:'🍝',t:'A Brand New Dish',c:'Italian',mins:20,cals:400,serves:4,rating:4.6,
+      desc:'A test dish.',ing:[{n:'Pasta',amt:'400g',emoji:'🍝',core:true,swaps:[]}],
+      steps:[{t:'Boil',s:'Boil it.',tip:''}]};
+    eq('no cuisine asked for means any cuisine is fine',ctx.validateGenerated(good,'').ok,true);
+    eq('but it still has to say which',
+      ctx.validateGenerated(Object.assign({},good,{c:' '}),'').ok,false);
+    eq('and a named cuisine is still held to',ctx.validateGenerated(good,'Thai').ok,false);
+  }
+
   eq('the offline path no longer tells a stranger to run a server',(function(){
     const src=fs.readFileSync(APP,'utf8');
     return src.indexOf('marcoLocalAnswer(q)')>0;})(),true);
