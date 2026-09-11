@@ -208,6 +208,37 @@ eq('and clicking opens it in Discover',/jumpToRecipe/.test(html),true);
   eq('it admits what it cannot do',la('something impressive for guests'),null);
   eq('rather than guessing',la('surprise me'),null);
 
+  // Asked for scallops, Marco parsed the question perfectly, found that none of
+  // the 284 recipes use them, and replied "name an ingredient, a dish, or say
+  // what you fancy" — which is exactly what had just been done. The catalogue
+  // not having something is an answer, and it needs no proxy to give it.
+  eq('there really are no scallops to find',                      // canary
+    RM.some(function(r){return /scallop/i.test(r.t+' '+r.ing.map(function(i){return i.n}).join(' '))}),false);
+  {
+    const a=la('what can I make with scallops');
+    eq('it says so plainly',/nothing in your \d+ recipes uses scallops/i.test(a.text),true);
+    eq('and offers the nearest thing it does have',a.recipe_ids.length>0,true);
+    eq('which really is seafood',a.recipe_ids.every(function(id){
+      const r=RM.find(function(x){return x.id===id});
+      return r.ing.some(function(i){return /salmon|prawn|shrimp|cod|sole|tuna|squid|crab|mussel|sea bass|fish/i.test(i.n)});
+    }),true);
+    // Fish sauce is a flavouring, not a seafood dish. It put a Thai omelette at
+    // the top of the list of things closest to a scallop.
+    eq('and not a dish that merely contains fish sauce',a.recipe_ids.every(function(id){
+      const r=RM.find(function(x){return x.id===id});
+      return r.ing.some(function(i){return /salmon|prawn|shrimp|cod|sole|tuna|squid|crab|mussel|sea bass|fish/i.test(i.n)&&!/sauce|stock|paste/i.test(i.n)});
+    }),true);
+  }
+  eq('the same for meat',/nothing in your \d+ recipes uses venison/i.test(la('venison').text),true);
+  eq('two missing things at once read as one sentence',
+    /uses scallops or venison/i.test(la('scallops and venison').text),true);
+  // The loose matcher will always find something: "do you have anything with
+  // samphire" scored eight recipes on the word "you" and offered smash burgers.
+  eq('a flat no beats a loose match',
+    /nothing in your \d+ recipes uses samphire/i.test(la('do you have anything with samphire').text),true);
+  // and the guard that keeps judgement questions out of all this
+  eq('an adjective is not a missing ingredient',la('something impressive for guests'),null);
+
   eq('the offline path no longer tells a stranger to run a server',(function(){
     const src=fs.readFileSync(APP,'utf8');
     return src.indexOf('marcoLocalAnswer(q)')>0;})(),true);

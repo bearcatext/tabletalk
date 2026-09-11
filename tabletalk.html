@@ -8656,14 +8656,93 @@ function marcoLocalAnswer(q){
 
   // what can I make — the matcher answers this on its own
   const cand=marcoCandidates(q);
-  if(cand.list.length){
+  if(cand.exact&&cand.list.length){
     const n=cand.list.length;
-    return {text:cand.exact
-        ? (n===1?`One of your recipes matches that.`:`${n} of your recipes match that.`)
-        : `Nothing matches every part of that, but these come closest.`,
+    return {text:n===1?`One of your recipes matches that.`:`${n} of your recipes match that.`,
       recipe_ids:cand.list.slice(0,4).map(x=>x.id)};
   }
+
+  // Nothing matched outright, and that is an answer rather than a failure.
+  // Asked for scallops, Marco parsed the question perfectly, found that none of
+  // the 284 recipes use them, and then replied "name an ingredient, a dish, or
+  // say what you fancy" — which is what had just been done. The catalogue not
+  // having something is worth saying out loud, and it needs no proxy to say it.
+  //
+  // It is checked before the loose matcher because the loose matcher will
+  // always find something: "do you have anything with samphire" scored eight
+  // recipes on the word "you" and offered smash burgers. A flat no is the
+  // better answer.
+  const absent=absentIngredients(q);
+  if(absent.terms.length){
+    const list=absent.terms.length===1?absent.terms[0]
+      :absent.terms.slice(0,-1).join(', ')+' or '+absent.terms[absent.terms.length-1];
+    const none=`Nothing in your ${ALL_RECIPES.length} recipes uses ${list}.`;
+    if(absent.near.length)
+      return {text:`${none} The closest are the ${absent.family} dishes you do have.`,
+              recipe_ids:absent.near.slice(0,4).map(r=>r.id)};
+    return {text:`${none} Add a recipe puts your own in, and it is searchable from then on.`,
+            recipe_ids:[]};
+  }
+
+  if(cand.list.length)
+    return {text:`Nothing matches every part of that, but these come closest.`,
+      recipe_ids:cand.list.slice(0,4).map(x=>x.id)};
   return null;
+}
+
+// Close enough to offer instead. Deliberately narrower than the FISH and MEAT
+// lists the diet rules use: those count fish sauce, dashi and gelatin, and
+// nobody asking about scallops wants to be shown a stir-fry on the grounds that
+// it has oyster sauce in it.
+const NEAR_FAMILIES=[
+  {family:'seafood', words:rx(['fish','salmon','trout','cod','haddock','hake','sea bass',
+    'sea bream','plaice','sole','sardine','mackerel','tuna','prawn','shrimp','crab',
+    'lobster','clam','mussel','squid','octopus','scallop','anchovy','anchovies'])},
+  {family:'meat', words:rx(['beef','steak','lamb','mutton','pork','bacon','pancetta',
+    'chicken','turkey','duck','venison','rabbit','veal','sausage','chorizo','ham'])},
+];
+
+// Is the word a food at all? "Scallops" is, "impressive" is not, and telling
+// someone that none of their recipes use "impressive" is worse than saying
+// nothing — "something impressive for guests" is a judgement question and has
+// to go on falling through to the model. This is the guard that keeps the two
+// apart, and the marco_test cases for it are why the first version of this
+// answer did not ship.
+const PANTRY_WORDS=rx(['mushroom','aubergine','eggplant','courgette','zucchini','pepper',
+  'potato','tomato','onion','garlic','leek','cabbage','kale','spinach','broccoli',
+  'cauliflower','carrot','pea','bean','lentil','chickpea','tofu','tempeh','rice',
+  'quinoa','couscous','pasta','noodle','bread','flour','polenta','barley','oat',
+  'lemon','lime','orange','apple','mango','avocado','olive','caper','anchovy',
+  'saffron','truffle','miso','kimchi','harissa','tahini','pomegranate','fennel',
+  'artichoke','asparagus','beetroot','squash','pumpkin','plantain','okra','samphire']);
+const looksLikeFood=t=>NEAR_FAMILIES.some(f=>f.words.test(t))||
+  PANTRY_WORDS.test(t)||DAIRY.test(t)||NUTS.test(t)||EGG.test(t);
+
+// Terms the question named that no recipe anywhere in the catalogue contains,
+// plus the nearest thing it does have.
+function absentIngredients(q){
+  const f=searchFilters(q);
+  const empty={terms:[],near:[],family:''};
+  if(!f.terms.length) return empty;
+  const hay=r=>(r.t+' '+r.c+' '+(r.desc||'')+' '+r.ing.map(i=>i.n).join(' ')).toLowerCase();
+  const shelf=ALL_RECIPES.filter(r=>!hidden.has(r.id));
+  const terms=f.terms.filter(t=>t.length>2&&looksLikeFood(t)&&
+    !shelf.some(r=>hay(r).indexOf(t)>=0));
+  if(!terms.length) return empty;
+  // Only offer neighbours when every missing term belongs to the same family —
+  // "scallops and venison" has no single closest thing.
+  const fam=NEAR_FAMILIES.find(x=>terms.every(t=>x.words.test(t)));
+  if(!fam) return {terms:terms,near:[],family:''};
+  // A seafood ingredient, not a seafood flavouring. Fish sauce put a Thai
+  // omelette at the top of the list of seafood dishes.
+  const FLAVOURING=/\b(sauce|stock|paste|powder|seasoning|broth|bouillon)\b/i;
+  const of=r=>r.ing.filter(i=>fam.words.test(i.n)&&!FLAVOURING.test(i.n));
+  // A dish the family is the point of, before one it merely appears in: asked
+  // about venison, a steak is a better offer than a BLT.
+  const central=r=>of(r).some(i=>i.core)?0:1;
+  return {terms:terms,family:fam.family,
+    near:shelf.filter(r=>of(r).length)
+      .sort((a,b)=>central(a)-central(b)||a.mins-b.mins).slice(0,MARCO_SHORTLIST)};
 }
 
 function marcoContextMessage(userText){
