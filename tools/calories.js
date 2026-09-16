@@ -26,6 +26,10 @@ const FOODS = [
   // chicken row and a litre and a half of it was priced as 2.5kg of breast;
   // "Beef broth" put five thousand calories into a bowl of pho.
   [/\b(stock|broth|dashi|bouillon|water|vinegar|juice)\b/, 12, 250],
+  // Flavourings before the things they flavour. "Fish sauce" matched the white
+  // fish row and was priced as fish; below, the -fish suffix would have made
+  // that certain rather than accidental.
+  [/\b(fish sauce|soy sauce|tamari|worcestershire|shoyu|liquid amino)\b/, 60, 15],
 
   // Beans and nuts come before the fats on purpose. "Butter beans" matched the
   // butter row and 800g of them were priced as 720 cal/100g of fat — one
@@ -50,7 +54,11 @@ const FOODS = [
   // meat and shut out of Heart healthy.
   [/\b(salmon|mackerel|tuna|sardine|trout|anchov\w*|eel)\b/, 200, 120],
   [/\b(prawn|shrimp|squid|octopus|scallop|mussel|clam|crab|lobster|oyster)\b/, 95, 15],
-  [/\b(cod|haddock|pollock|hake|sea bass|bream|snapper|tilapia|halibut|monkfish|white fish|fish)\b/, 95, 150],
+  // \w*fish catches the ones a list never keeps up with — catfish, swordfish,
+  // whitefish, cuttlefish. Swordfish was being priced at 250 cal/100g because
+  // "steaks" reached the beef row first, which is the same fault that once had
+  // salmon shut out of Heart healthy for being sold as a steak.
+  [/\b(cod|haddock|pollock|hake|sea bass|bream|snapper|tilapia|halibut|white fish|\w*fish)\b/, 95, 150],
   [/\b(beef|steak|brisket|short rib|oxtail|veal|mince|minced|ground)\b/, 250, 150],
   [/\b(pork|gammon|ham|meatball)\b/, 250, 30],
   [/\b(chicken thigh|chicken leg|chicken wing|turkey thigh|drumstick)\b/, 210, 90],

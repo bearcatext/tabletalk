@@ -103,6 +103,45 @@ eq('plant milks are not dairy at all',ctx.violates('df','Coconut milk'),false);
 eq('peanut butter is not butter',ctx.violates('df','Peanut butter'),false);
 eq('buttermilk is not butter',ctx.violates('df','Buttermilk'),true);
 eq('a vegan still avoids every dairy',ctx.violatesBase('vgn','Parmesan'),true);
+
+console.log('-- a fish whose name ends in fish is still a fish --');
+// \bfish\b cannot match "catfish": the word boundary that keeps the list tidy
+// is the same one that stops the compound names matching. A generated cornmeal
+// catfish reached the catalogue classified as vegetarian because of it, and
+// swordfish was being priced as beef by the calorie table for the same reason
+// — "steaks" got there first.
+['Catfish fillets','Swordfish steaks','Monkfish tail','Whitefish','Cuttlefish',
+ 'Shellfish stock','Crayfish tails'].forEach(function(n){
+  eq(n+' is not vegetarian',ctx.violatesBase('veg',n),true);
+  eq('nor vegan',ctx.violatesBase('vgn',n),true);
+});
+// and the plain words still work
+['Cod','Salmon fillets','Prawns','Fish sauce'].forEach(function(n){
+  eq(n+' is still caught',ctx.violatesBase('veg',n),true);
+});
+// It is a suffix rule, so "fisherman" is safe — fish is not at the end of it.
+eq('a word with fish in the middle is not a fish',ctx.violatesBase('veg','Fisherman pie crust'),false);
+// It would match any word ending in "fish", "selfish" included. That is only
+// harmless while no ingredient is such a word, so the catalogue is checked
+// rather than the claim being assumed.
+{
+  const caught=[...new Set(R.flatMap(function(r){return r.ing})
+    .map(function(i){return i.n})
+    .filter(function(n){return /\w*fish(es)?\b/i.test(n)}))];
+  eq('the suffix catches something',caught.length>0,true);              // canary
+  eq('and everything it catches really is a fish',
+    caught.filter(function(n){
+      return !/fish|anchov|seafood|prawn|shrimp|crab|clam|mussel|squid|octopus|scallop/i.test(n)}),[]);
+}
+// Stated over the catalogue: nothing with a fish in it may be vegetarian.
+{
+  const fishy=R.filter(function(r){
+    return r.ing.some(function(i){return /\w*fish(es)?\b/i.test(i.n)&&!/sauce|stock|paste/i.test(i.n)})});
+  eq('there are fish dishes to check',fishy.length>0,true);            // canary
+  eq('none of them is offered to a vegetarian',
+    fishy.filter(function(r){ctx.clearDietCache();return ctx.dietStatus(r,'veg').ok})
+      .map(function(r){return r.t}),[]);
+}
 eq('and butter',ctx.violatesBase('vgn','Butter'),true);
 
 console.log('-- intolerance reaches further than allergy --');

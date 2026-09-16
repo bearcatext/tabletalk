@@ -5876,12 +5876,20 @@ const MEAT = rx([
   'lard', 'duck', 'confit', 'chicken', 'poultry', 'turkey', 'gelatin', 'bulgogi',
   'carnitas', 'char siu', 'meat',
 ]);
-const FISH = rx([
+// A fish whose name ends in -fish is still a fish, and \bfish\b cannot say so:
+// the word boundary that keeps the list tidy is the same one that stops
+// "catfish" from matching. Catfish, swordfish, monkfish, whitefish, shellfish,
+// cuttlefish and crayfish all read as not-fish, and a generated cornmeal
+// catfish was being offered to vegetarians on the strength of it. The suffix is
+// added explicitly rather than hoping the list stays complete.
+const FISH_NAMES = [
   'fish', 'anchovy', 'anchovies', 'tuna', 'salmon', 'trout', 'cod', 'sea bass',
   'sea bream', 'plaice', 'sole', 'sardine', 'mackerel', 'prawn', 'shrimp', 'crab',
   'lobster', 'clam', 'mussel', 'oyster', 'squid', 'octopus', 'scallop', 'seafood',
   'bonito', 'dashi', 'katsuobushi', 'shrimp paste', 'oyster sauce', 'worcestershire',
-]);
+];
+const ANY_FISH = String.raw`\b\w*fish(?:es)?\b`;
+const FISH = new RegExp(rx(FISH_NAMES).source + '|' + ANY_FISH, 'i');
 const EGG = rx(['egg', 'mayonnaise', 'mayo', 'aioli']);
 
 // Names that read as animal but are not. An oyster mushroom is a fungus, a
@@ -5949,7 +5957,9 @@ const SAT_FAT_OK = rx(['butter bean', 'butter lettuce', 'butternut', 'peanut but
 // Heart healthy was exclusion-only, so a plain tomato pasta qualified on the
 // strength of having no butter. It now needs a lean protein, and fish and
 // poultry rank ahead of the rest.
-const FISH_LEAN = rx(['fish','salmon','trout','cod','sea bass','sea bream','plaice','sole','sardine','mackerel','tuna','prawn','shrimp','crab','lobster','clam','mussel','squid','octopus','scallop','seafood','anchovy','anchovies']);
+// Same -fish suffix as above, for the same reason: without it a catfish supper
+// counts as having no protein at all when Heart healthy sorts by what is in it.
+const FISH_LEAN = new RegExp(rx(['fish','salmon','trout','cod','sea bass','sea bream','plaice','sole','sardine','mackerel','tuna','prawn','shrimp','crab','lobster','clam','mussel','squid','octopus','scallop','seafood','anchovy','anchovies']).source + '|' + ANY_FISH, 'i');
 const POULTRY_LEAN = rx(['chicken','turkey','poultry']);
 const PLANT_PROTEIN = rx(['bean','lentil','chickpea','dal','dhal','tofu','tempeh','edamame','pea','split pea','quinoa']);
 const EGG_PROTEIN = rx(['egg']);
