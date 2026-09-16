@@ -145,6 +145,23 @@ node tools/generate.js --cuisine Chinese --diet vgn
 node tools/generate.js --brief "grilled scallops"
 ```
 
+### Telling a new recipe from an old one
+
+Recipes written into the catalogue carry `added`, the day they were written,
+and are shown as **New** for a fortnight after it. There is a **New** card on
+the picker while any are inside that window — "6 added 2 days ago" — and a tag
+on the card itself.
+
+The first batch the weekly job produced arrived completely silently, because
+nothing carried a date: Monday's three were indistinguishable from the original
+284 and you would only have known by reading a diff. Being *unseen* was the
+nearest thing the app had, and it is not the same — a recipe from the first
+commit that you have never scrolled to looks exactly like one that landed this
+morning.
+
+The recipes that shipped with the app have no `added`, and absence means "not
+new" rather than "unknown", so nothing announces 284 recipes at once.
+
 ### Which shelf gets topped up
 
 "The thinnest cuisine" stopped being a useful question once every cuisine

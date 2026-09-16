@@ -122,5 +122,73 @@ console.log('-- the file reads the same way to every tool --');
       .test('  {id:1,e:"x"'):false,true);
 }
 
+console.log('-- a recipe that arrived recently says so --');
+// The weekly job puts recipes in the catalogue without anyone asking, and the
+// first batch arrived completely silently: nothing carried a date, so Monday's
+// three were indistinguishable from the original 284. "Unseen" was the nearest
+// thing and it is not the same — a recipe from the first commit you have never
+// scrolled to looks exactly like one that landed this morning.
+{
+  // Dates are computed, never written down: a literal would quietly stop being
+  // recent and the test would start passing for the wrong reason.
+  const daysAgo=n=>new Date(Date.now()-n*86400000).toISOString().slice(0,10);
+  const at=d=>({id:9500,t:'x',added:d});
+  const isNew=G('isNew');
+
+  eq('written today is new',isNew(at(daysAgo(0))),true);
+  eq('and so is a fortnight ago, just',isNew(at(daysAgo(13))),true);
+  eq('but not a day past it',isNew(at(daysAgo(15))),false);
+  eq('nor a month',isNew(at(daysAgo(40))),false);
+  eq('a recipe with no date is not new',isNew({id:1,t:'x'}),false);
+  eq('a future date is a typo, not news',isNew(at(daysAgo(-3))),false);
+  eq('and nonsense is not a date',isNew(at('soon')),false);
+
+  // The original catalogue predates the stamp, so absence has to mean "not new"
+  // rather than "unknown" — otherwise every recipe shipped would be announced.
+  eq('the recipes that shipped are not announced as new',
+    G('BASE_RECIPES').filter(function(r){return !r.added}).every(function(r){
+      return !isNew(r)}),true);
+
+  const ns=G('newRecipes')();
+  eq('there are recipes carrying a date',
+    G('ALL_RECIPES').some(function(r){return r.added}),true);          // canary
+  eq('newest first',ns.every(function(r,i){
+    return i===0||ns[i-1].added>=r.added}),true);
+  eq('and every one of them really is new',ns.every(isNew),true);
+  // Hiding a recipe takes it out of every list; this one was written by hand
+  // and forgot, which is the sort of thing a new pool quietly gets wrong.
+  if(ns.length){
+    G('hidden').add(ns[0].id);
+    eq('a hidden recipe is not offered as new',
+      G('newRecipes')().some(function(r){return r.id===ns[0].id}),false);
+    G('hidden').delete(ns[0].id);
+  }
+
+  eq('they are reachable as their own category',ctx.pool('new').length,ns.length);
+  eq('and the count says when, not just how many',
+    /added (today|yesterday|\d+ days ago)$/.test(ctx.pickerCount('new')),true);
+
+  // A recipe written in the app carries the day it was written, so the same
+  // badge works whether it came from the weekly job or from Marco.
+  eq('generating one in the app stamps it too',
+    /^\d{4}-\d{2}-\d{2}$/.test(ctx.normaliseGenerated(good(),9600).added),true);
+  eq('and it counts as new immediately',isNew(ctx.normaliseGenerated(good(),9601)),true);
+}
+
+console.log('-- and the writer puts the date in the file --');
+{
+  const gen=require('fs').readFileSync(
+    require('path').join(__dirname,'..','tools','generate.js'),'utf8');
+  eq('entries are written with it',/added:\$\{str\(r\.added/.test(gen),true);
+  // verify.js reads the catalogue with a regex that stops at rating, so the
+  // field has to sit after it or every recipe becomes invisible to the tool
+  // that counts them — which is how three recipes once went missing.
+  const src=require('fs').readFileSync(process.argv[2]||
+    require('path').join(__dirname,'..','tabletalk.html'),'utf8');
+  const seen=[...src.matchAll(/\{id:(\d+),e:"([^"]+)",t:"([^"]+)",c:"([^"]+)",mins:(\d+),cals:(\d+),rating:([\d.]+)/g)];
+  eq('and the verifier can still see every recipe',
+    seen.length,G('BASE_RECIPES').length);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exitCode=fail?1:0;

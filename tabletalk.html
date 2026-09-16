@@ -5328,7 +5328,7 @@ const BASE_RECIPES = [
   // Three ways to cook the same thing, because the technique is the dish. All
   // three start by getting them dry and end before you think they are done:
   // a scallop goes from sweet to rubber in about thirty seconds.
-  {id:285,e:"🐚",t:"Grilled scallops with lemon and oregano",c:"Mediterranean",mins:15,cals:250,rating:4.7,serves:4,desc:"Ninety seconds a side over fierce heat, dressed off the grill.",
+  {id:285,e:"🐚",t:"Grilled scallops with lemon and oregano",c:"Mediterranean",mins:15,cals:250,rating:4.7,serves:4,added:"2026-09-11",desc:"Ninety seconds a side over fierce heat, dressed off the grill.",
    ing:[
      {n:"King scallops",amt:"600g (about 12), shelled",emoji:"🐚",core:true},
      {n:"Olive oil",amt:"3 tbsp",emoji:"🥫",core:true},
@@ -5346,7 +5346,7 @@ const BASE_RECIPES = [
      {t:"Serve",s:"Cut the second lemon into wedges and put them on the table."},
    ]},
 
-  {id:286,e:"🐚",t:"Seared scallops with brown butter and capers",c:"French",mins:15,cals:300,rating:4.8,serves:4,desc:"A hard crust on one side, nutty butter and capers over the top.",
+  {id:286,e:"🐚",t:"Seared scallops with brown butter and capers",c:"French",mins:15,cals:300,rating:4.8,serves:4,added:"2026-09-11",desc:"A hard crust on one side, nutty butter and capers over the top.",
    ing:[
      {n:"King scallops",amt:"600g (about 12), shelled",emoji:"🐚",core:true},
      {n:"Butter",amt:"60g",emoji:"🧈",core:true},
@@ -5364,7 +5364,7 @@ const BASE_RECIPES = [
      {t:"Serve",s:"Spoon the butter over the scallops, scatter parsley, and eat them straight away."},
    ]},
 
-  {id:287,e:"🐚",t:"Butter-soy scallops",c:"Japanese",mins:12,cals:240,rating:4.7,serves:4,desc:"Hotate bata-shoyu — seared hard, glazed off the heat so the soy cannot scorch.",
+  {id:287,e:"🐚",t:"Butter-soy scallops",c:"Japanese",mins:12,cals:240,rating:4.7,serves:4,added:"2026-09-11",desc:"Hotate bata-shoyu — seared hard, glazed off the heat so the soy cannot scorch.",
    ing:[
      {n:"King scallops",amt:"600g (about 12), shelled",emoji:"🐚",core:true},
      {n:"Butter",amt:"30g",emoji:"🧈",core:true},
@@ -5381,7 +5381,7 @@ const BASE_RECIPES = [
      {t:"Return and coat",s:"Tip the scallops and any juices back in and turn them through the glaze for 30 seconds."},
      {t:"Serve",s:"Scatter the spring onions and serve with plain rice."},
    ]},
-  {id:288,e:"🥓",t:"Jeyuk Bokkeum (Spicy Pork Stir-Fry)",c:"Korean",mins:25,cals:395,rating:4.7,serves:4,desc:"Thin pork shoulder seared hard in a sweet-hot gochujang glaze, cooked in two batches.",
+  {id:288,e:"🥓",t:"Jeyuk Bokkeum (Spicy Pork Stir-Fry)",c:"Korean",mins:25,cals:395,rating:4.7,serves:4,added:"2026-09-14",desc:"Thin pork shoulder seared hard in a sweet-hot gochujang glaze, cooked in two batches.",
    ing:[
      {n:"Pork shoulder, sliced 5mm thin",amt:"500g",emoji:"🥓",core:true},
      {n:"Gochujang",amt:"3 tbsp",emoji:"🌶️",core:true},
@@ -5399,7 +5399,7 @@ const BASE_RECIPES = [
      {t:"Sear batch two",s:"Add the remaining oil and the rest of the pork, cook the same way, then return batch one with the onion."},
      {t:"Finish",s:"Stir-fry 2-3 minutes until the onion is just floppy and the glaze clings. Taste and add a pinch of salt only if it needs lift — the soy and gochujang do most of the seasoning."},
    ]},
-  {id:289,e:"🍳",t:"Gyeran Jjim (Steamed Egg Custard)",c:"Korean",mins:15,cals:145,rating:4.6,serves:4,desc:"Silky savoury egg custard steamed in a pot until it puffs like a soufflé.",
+  {id:289,e:"🍳",t:"Gyeran Jjim (Steamed Egg Custard)",c:"Korean",mins:15,cals:145,rating:4.6,serves:4,added:"2026-09-14",desc:"Silky savoury egg custard steamed in a pot until it puffs like a soufflé.",
    ing:[
      {n:"Eggs",amt:"6",emoji:"🥚",core:true},
      {n:"Anchovy or dashi stock, warm",amt:"300ml",emoji:"🥣",core:false,swaps:[{n:"Chicken stock",amt:"300ml",note:"rounder and meatier, less of the sea"},{n:"Water with 1 tsp fish sauce",amt:"300ml",note:"thinner body, still salty-savoury"}]},
@@ -5414,7 +5414,7 @@ const BASE_RECIPES = [
      {t:"Steam gently",s:"Keep the water at a bare simmer, not a boil, for 12-14 minutes until the centre wobbles as one piece.",tip:"Hard boiling makes it bubbly and weeping — lower heat, longer time."},
      {t:"Finish",s:"Uncover, scatter the spring onion, drizzle the sesame oil and serve straight from the bowl while it is still domed."},
    ]},
-  {id:290,e:"🦑",t:"Ojingeo Bokkeum (Spicy Squid Stir-Fry)",c:"Korean",mins:20,cals:250,rating:4.8,serves:4,desc:"Squid seared fast in a glossy chilli sauce with cabbage and onion — 3 minutes, no more.",
+  {id:290,e:"🦑",t:"Ojingeo Bokkeum (Spicy Squid Stir-Fry)",c:"Korean",mins:20,cals:250,rating:4.8,serves:4,added:"2026-09-14",desc:"Squid seared fast in a glossy chilli sauce with cabbage and onion — 3 minutes, no more.",
    ing:[
      {n:"Squid, cleaned and scored, cut in 4cm pieces",amt:"500g",emoji:"🦑",core:true},
      {n:"Gochujang",amt:"2 tbsp",emoji:"🌶️",core:true},
@@ -5623,8 +5623,35 @@ function save(){
 
 // ─── UTILITIES ───────────────────────────────────────────────────────────────
 function shuffle(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]]}return b}
+// ─── WHAT ARRIVED RECENTLY ───────────────────────────────────────────────────
+// The weekly job puts recipes in the catalogue without anyone asking, and until
+// now they arrived silently: nothing carried a date, so Monday's three were
+// indistinguishable from the original 284 and you would only know by reading a
+// diff. "Unseen" was the nearest thing, and it is not the same — a recipe from
+// the first commit that you have never scrolled to looks exactly like one that
+// landed this morning.
+//
+// So new entries carry the day they were written, and are called new for a
+// fortnight after it. Two weeks is long enough to catch a cook who opens the
+// app on alternate Sundays, and short enough that the badge still means
+// something.
+const NEW_DAYS=14;
+const todayISO=()=>new Date().toISOString().slice(0,10);
+function isNew(r){
+  if(!r||!r.added) return false;              // the original catalogue: not new
+  const t=Date.parse(r.added+'T00:00:00Z');
+  if(!t) return false;                        // unparseable is not a date
+  const days=(Date.now()-t)/86400000;
+  return days>=0&&days<NEW_DAYS;               // a future date is a typo, not news
+}
+function newRecipes(){
+  return ALL_RECIPES.filter(r=>isNew(r)&&!hidden.has(r.id))
+    .sort((a,b)=>(b.added<a.added?-1:b.added>a.added?1:0)||a.mins-b.mins);
+}
+
 function pool(c){
   const vis=r=>!hidden.has(r.id);
+  if(c==='new') return newRecipes();
   if(c==='search') return searchResults().filter(vis);
   if(c==='mine') return ownRecipes().filter(vis);
   if(c==='shared') return receivedRecipes().filter(vis);
@@ -6453,7 +6480,7 @@ function normaliseGenerated(o,id){
     mins:Math.round(o.mins), cals:Math.round(o.cals),
     serves:Math.min(20,Math.max(1,Math.round(Number(o.serves)||4))),
     rating:Math.min(5,Math.max(3.5,Number(o.rating)||4.5)),
-    desc:o.desc.trim(), gen:true,
+    desc:o.desc.trim(), gen:true, added:todayISO(),
     ing:o.ing.map(i=>{
       const out={n:i.n.trim(),amt:i.amt.trim(),emoji:safeEmoji(i.emoji,'🥄'),core:!!i.core};
       if(!i.core) out.swaps=i.swaps.map(s=>({n:s.n.trim(),amt:s.amt.trim(),note:s.note.trim()}));
@@ -6671,6 +6698,15 @@ function pickerCount(id){
   if(id==='mine'){const n=ownRecipes().length;return `${n} recipe${n===1?'':'s'}`}
   if(id==='shared'){const who=sharersOf();
     return who.length===1?`from ${who[0]}`:`from ${who.length} people`}
+  if(id==='new'){
+    const ns=newRecipes();
+    if(!ns.length) return 'nothing new';
+    // The day they arrived says more than the count does: "added Monday" is
+    // what makes a weekly drip feel like one.
+    const days=Math.floor((Date.now()-Date.parse(ns[0].added+'T00:00:00Z'))/86400000);
+    const when=days<=0?'today':days===1?'yesterday':`${days} days ago`;
+    return `${ns.length} added ${when}`;
+  }
   if(id==='pantry'){if(!pantry.size)return 'add your ingredients';const n=pool('pantry').length;return n?`${n} within reach`:'nothing close yet'}
   if(isDietCat(id)&&selEmpty()){
     const ok=ALL_RECIPES.filter(r=>dietStatus(r,id).ok).length;
@@ -6726,6 +6762,7 @@ function renderCuisineRow(){
     <div class="picker-section">
       <div class="picker-label">Your own</div>
       <div class="picker-grid">
+        ${newRecipes().length?pickerCard('new','✨','New','own'):''}
         ${ownRecipes().length?pickerCard('mine','📒','My recipes','own'):''}
         ${receivedRecipes().length?pickerCard('shared','🎁','Shared with you','share'):''}
         ${shared.length?`<button class="pcard own" onclick="openShare()">
@@ -6944,7 +6981,7 @@ function effortPool(cat){
 }
 
 // ─── THE SELECTION ───────────────────────────────────────────────────────────
-const MODES=['search','pantry','mine','shared'];
+const MODES=['search','pantry','mine','shared','new'];
 const selGroup=id=>isDietCat(id)?'diets':isEffortCat(id)?'efforts':'cuisines';
 function selEmpty(){return !(sel.cuisines.length||sel.diets.length||sel.efforts.length)}
 function selAny(){return !!mode||started}
@@ -6971,6 +7008,7 @@ function selPool(x){
     if(mode==='search') return searchResults().filter(vis);
     if(mode==='mine') return ownRecipes().filter(vis);
     if(mode==='shared') return receivedRecipes().filter(vis);
+    if(mode==='new') return newRecipes();
     if(mode==='pantry') return pantryRanked().filter(vis);
     x=sel;
   }
@@ -6994,6 +7032,7 @@ function selLabel(){
   if(mode==='search') return searchQuery?'“'+searchQuery+'”':'Search';
   if(mode==='mine') return 'My recipes';
   if(mode==='shared') return 'Shared with you';
+  if(mode==='new') return 'New this fortnight';
   if(mode==='pantry') return 'Use my pantry';
   const names=sel.cuisines.slice()
     .concat(sel.diets.map(d=>dietCat(d).label))
@@ -7006,6 +7045,7 @@ function selFlag(){
   if(mode==='search') return '🔍';
   if(mode==='mine') return '📒';
   if(mode==='shared') return '🎁';
+  if(mode==='new') return '✨';
   if(mode==='pantry') return '🧺';
   if(sel.cuisines.length===1){const c=allCuisines().find(x=>x.id===sel.cuisines[0]);if(c) return c.fl}
   if(!sel.cuisines.length&&sel.diets.length===1) return dietCat(sel.diets[0]).fl;
@@ -7048,7 +7088,7 @@ function recipeCardHtml(r,opts){
           ${r.mins<=25?'<span class="tag tq">Quick</span>':''}
           ${isEasy(r)?'<span class="tag te">Easy</span>':''}
           ${hasAhead(r)?'<span class="tag ta">Prep ahead</span>':''}
-          ${r.own?'<span class="tag to">mine</span>':r.gen?'<span class="tag tg">new</span>':''}
+          ${r.own?'<span class="tag to">mine</span>':isNew(r)?'<span class="tag tg">New</span>':''}
           ${matchBadgeHtml(r)}
           ${dietBadgeHtml(r)}
         </div>

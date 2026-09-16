@@ -244,8 +244,12 @@ const { RECIPE_SCHEMA } = require('./recipe-schema.js');
     (typeof o[k] === 'number' ? o[k] :
      typeof o[k] === 'boolean' ? o[k] : str(o[k]))).join(',');
   const line = r => {
+    // The day it was written. Without it a recipe that arrives on a Monday is
+    // indistinguishable from one that shipped in the first commit, and the
+    // weekly drip lands silently — which is what it did for the first batch.
     const head = `  {id:${r.id},e:${str(r.e)},t:${str(r.t)},c:${str(r.c)},` +
-      `mins:${r.mins},cals:${r.cals},rating:${r.rating},serves:${r.serves},desc:${str(r.desc)},`;
+      `mins:${r.mins},cals:${r.cals},rating:${r.rating},serves:${r.serves},` +
+      `added:${str(r.added || new Date().toISOString().slice(0, 10))},desc:${str(r.desc)},`;
     const ing = r.ing.map(i => {
       const base = `{n:${str(i.n)},amt:${str(i.amt)},emoji:${str(i.emoji)},core:${!!i.core}`;
       const sw = (i.swaps || []).length

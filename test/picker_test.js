@@ -16,9 +16,31 @@ const row=()=>stub('cuisine-row').innerHTML;
 S('sel',{cuisines:[],diets:[],efforts:[]});S('mode',null);S('started',false);S('pickerOpen',true);ctx.renderCuisineRow();
 eq('landing shows full grid',/picker-grid/.test(row()),true);
 eq('landing has a section per grouping',(row().match(/picker-section/g)||[]).length,5);
-eq('one card per cuisine, diet, effort, pantry and add-your-own',
-  (row().match(/<button class="pcard/g)||[]).length,
-  G('CUISINES').length+G('DIET_CATS').length+G('EFFORT_CATS').length+2);
+// Counted as "one card each, plus whichever of the optional ones apply" rather
+// than as a number. Written as a sum it had to be edited every time the picker
+// gained a card — and the sum is what broke when New arrived, not the picker.
+{
+  const html=row();
+  const once=id=>(html.match(new RegExp("selectCuisine\\('"+id+"'\\)","g"))||[]).length;
+  eq('one card for every cuisine',
+    G('CUISINES').filter(c=>once(c.id)!==1).map(c=>c.id),[]);
+  eq('one for every diet',
+    G('DIET_CATS').filter(c=>once(c.id)!==1).map(c=>c.id),[]);
+  eq('one for every effort',
+    G('EFFORT_CATS').filter(c=>once(c.id)!==1).map(c=>c.id),[]);
+  eq('the pantry is always offered',once('pantry'),1);
+  eq('and so is writing your own',/startNewRecipe\(\)/.test(html),true);
+  // Everything else on the grid has to be one of the cards that come and go
+  // with what you have — not something that has quietly appeared twice.
+  const OPTIONAL=['mine','shared','new'];
+  const known=G('CUISINES').map(c=>c.id)
+    .concat(G('DIET_CATS').map(c=>c.id), G('EFFORT_CATS').map(c=>c.id), ['pantry'], OPTIONAL);
+  const onGrid=[...html.matchAll(/selectCuisine\('([^']+)'\)/g)].map(m=>m[1]);
+  eq('nothing unaccounted for on the grid',
+    [...new Set(onGrid)].filter(id=>known.indexOf(id)<0),[]);
+  eq('and nothing on it twice',
+    [...new Set(onGrid)].filter(id=>onGrid.filter(x=>x===id).length>1),[]);
+}
 eq('no collapsed bar on landing',/picker-bar/.test(row()),false);
 
 ctx.selectCuisine('Thai');
