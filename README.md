@@ -217,19 +217,35 @@ rule applies:
 
 ## Still to build
 
-Four areas to grow into, each with the same shape as the dinner catalogue —
-ingredients, steps, swaps, servings that scale:
+Tabletalk answers one question — what's for dinner. Two of the things once
+listed here turned out not to be answers to it:
 
-- **Cocktails** — the recipe shape mostly fits, but calories are close to
-  meaningless, the diet classifier has little to say, and steps run to two or
-  three lines. Likely its own mode rather than a cuisine.
-- **Snacks** — fits the existing shape almost exactly.
+- **Drinks** and **Snacks** are their own apps, not categories in this one.
+  They are different occasions rather than different dinners, and folding them
+  into the catalogue would mean a pantry search that offers you a martini and a
+  weekly job that tops up crisps. They stay out.
+
+What is left is cooking that still ends in dinner, and both grow the catalogue
+rather than changing its shape:
+
 - **Bread** — proving and resting are long waits rather than work, so the
   make-ahead model already in the app matters more here than anywhere else.
   "45 minutes" means something different when 40 of them are the dough sitting
   on its own.
 - **Pasta** — making it, not cooking with it. Few ingredients, technique-heavy,
   so the weight falls on the step text rather than the ingredient list.
+
+### What a separate app would want from this one
+
+Worth knowing before either is started. A snacks or drinks app would want most
+of what is already here: the diet classifier and its two positions per
+restriction, Marco and his offline answers, the generator with its coverage
+targeting and calorie check, share links, profiles, the shopping list. That is
+most of the 8,900 lines, and almost none of it is about dinner specifically.
+
+So the real choice is between copying it and letting the two drift apart within
+a month, or lifting the shared parts out into something both build on. Neither
+is free, and the second is much cheaper before there are two apps than after.
 
 ## Notes
 
