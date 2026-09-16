@@ -18,3 +18,30 @@ console.log('cuisine mismatch:',Object.keys(cnt).filter(c=>!CU.includes(c)).join
 console.log('next free id:    ',Math.max(...recs.map(r=>r.id))+1);
 const slow=recs.filter(r=>r.mins>30);
 console.log('over 30 min:     ',slow.length,slow.slice(0,4).map(r=>`${r.t}(${r.mins})`).join(', '));
+
+// Counting cuisines alone hid the real holes: every cuisine is over target
+// while nine cuisine-and-diet shelves are not. This needs the app's own diet
+// classifier, so it runs the file rather than reading it with a regex.
+try{
+  const vm=require('vm');
+  const code=html.match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/)[1]+'\n;globalThis.__g=n=>eval(n);';
+  const els={};
+  const stub=id=>els[id]||(els[id]={id,setAttribute(){},removeAttribute(){},hidden:false,innerHTML:'',
+    className:'',style:{},value:'',textContent:'',scrollTop:0,scrollHeight:1,
+    classList:{add(){},remove(){},toggle(){},contains:()=>false},
+    querySelector:()=>stub('x'),querySelectorAll:()=>[],focus(){},select(){}});
+  const ctx={localStorage:{getItem:()=>null,setItem(){},removeItem(){}},
+    document:{getElementById:stub,querySelectorAll:()=>[],addEventListener(){},body:{style:{}},
+      createElement:()=>({getContext:()=>({font:'',measureText:()=>({width:20})})})},
+    location:{href:'x',hash:'',pathname:'/',search:''},history:{replaceState(){}},
+    window:{addEventListener(){},scrollTo(){},scrollY:0},
+    console:{log(){},warn(){},error(){}},setTimeout:()=>0,
+    fetch:()=>Promise.reject(new Error('x')),confirm:()=>true,navigator:{}};
+  ctx.globalThis=ctx;vm.createContext(ctx);new vm.Script(code).runInContext(ctx);
+  const {coverage}=require('./coverage.js');
+  const rep=coverage(ctx,ctx.__g);
+  console.log(`\nshelves below target: ${rep.gaps.length}`);
+  rep.gaps.slice(0,10).forEach(g=>console.log(
+    `  ${String(g.have).padStart(3)}/${g.want}  ${g.kind.padEnd(8)}${g.what}`));
+  if(rep.gaps.length>10) console.log(`  ...and ${rep.gaps.length-10} more`);
+}catch(e){ console.log('\ncoverage unavailable:',e.message) }

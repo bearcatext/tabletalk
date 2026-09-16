@@ -139,9 +139,30 @@ git history second — rewriting history does not un-scrape it.
 ## Writing recipes
 
 ```bash
-node tools/generate.js --thinnest --dry-run   # see what it would write
-node tools/generate.js --cuisine Korean --count 3
+node tools/generate.js --plan                 # where the catalogue is thin — no key needed
+node tools/generate.js --thinnest             # write for the emptiest shelf
+node tools/generate.js --cuisine Chinese --diet vgn
+node tools/generate.js --brief "grilled scallops"
 ```
+
+### Which shelf gets topped up
+
+"The thinnest cuisine" stopped being a useful question once every cuisine
+passed twenty: the job kept topping up whichever was marginally smallest while
+the real holes were elsewhere. Nine cuisine-and-diet shelves held fewer than
+five recipes, and vegan ran at three or four in most cuisines — pick Chinese,
+tap Vegan, get three dishes, for ever.
+
+Coverage is counted the three ways the picker is used — a cuisine, a diet, and
+a cuisine narrowed by a diet — and the emptiest shelf wins. Emptiness is
+proportional, so three of five outranks eighteen of twenty; otherwise a pair
+would never be chosen.
+
+A run aimed at a diet spells the rule out rather than naming it ("no meat,
+fish, egg, dairy or honey, and no fish sauce"), and **rejects recipes that miss
+it** — judged by the app's own classifier, not by the model's word for it.
+Accepting a near-miss leaves the shelf empty and sends next week at the same
+gap. `node tools/verify.js` prints the current gaps.
 
 The prompt, the schema and the validation all come from `tabletalk.html`
 itself, loaded the way the test suites load it. A generator carrying its own

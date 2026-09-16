@@ -2,9 +2,18 @@
 /**
  * Tabletalk — write new recipes into the catalogue, without a browser.
  *
+ *   node tools/generate.js --plan                 where the catalogue is thin
+ *   node tools/generate.js --thinnest             write for the emptiest shelf
  *   node tools/generate.js --cuisine Korean --count 3
- *   node tools/generate.js --thinnest            (whichever cuisine has fewest)
- *   node tools/generate.js --thinnest --dry-run  (write nothing, just report)
+ *   node tools/generate.js --cuisine Chinese --diet vgn
+ *   node tools/generate.js --brief "grilled scallops"
+ *   node tools/generate.js --thinnest --dry-run   write nothing, just report
+ *
+ * --plan needs no key: where the catalogue is thin is a question about the
+ * catalogue. --thinnest counts coverage the way the picker is used — a cuisine,
+ * a diet, and a cuisine narrowed by a diet — rather than asking only which
+ * cuisine has fewest, which stopped meaning anything once they all passed
+ * twenty. A run aimed at a diet rejects recipes that miss it.
  *
  * The key comes from the environment and is never written, logged or echoed:
  *
@@ -31,8 +40,11 @@ const flag = (name, dflt) => {
   return i < 0 ? dflt : (args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : true);
 };
 const DRY = !!flag('dry-run', false);
+// Asking where the catalogue is thin is a question about the catalogue, so it
+// does not need a key and should be answerable on any machine.
+const PLAN = !!flag('plan', false);
 
-if (!API_KEY) {
+if (!API_KEY && !PLAN) {
   console.error('\n  ANTHROPIC_API_KEY is not set.\n');
   console.error('  PowerShell:  $env:ANTHROPIC_API_KEY = "sk-ant-..."');
   console.error('  Git Bash:    export ANTHROPIC_API_KEY="sk-ant-..."\n');
@@ -67,24 +79,57 @@ const RECIPES = G('ALL_RECIPES');
 // is the point of the request queue: someone asked Marco for something the
 // catalogue did not have, and this is where it gets written. Given one, the
 // cuisine is optional and whoever writes the recipe picks what suits the dish.
-const brief = flag('brief', null);
+let brief = flag('brief', null);
 if (typeof brief === 'boolean') { console.error('--brief needs some words'); process.exit(1); }
 let cuisine = flag('cuisine', null);
 if (typeof cuisine === 'boolean') cuisine = null;
+// The diet the run is aimed at, if any. Recipes that miss it are rejected:
+// a run aimed at a hole that does not fill it has been paid for twice.
+let needDiet = flag('diet', null);
+if (typeof needDiet === 'boolean') needDiet = null;
+let dietRule = '';
+
 if (!cuisine && brief) {
   cuisine = '';                         // the writer chooses
 } else if (flag('thinnest', false) || !cuisine) {
-  const counts = {};
-  G('CUISINES').filter(c => c.id !== 'all').forEach(c => { counts[c.id] = 0 });
-  RECIPES.forEach(r => { if (r.c in counts) counts[r.c]++ });
-  cuisine = Object.keys(counts).sort((a, b) => counts[a] - counts[b])[0];
-  console.log(`thinnest cuisine: ${cuisine} (${counts[cuisine]} recipes)`);
+  // "Thinnest cuisine" stopped being a useful question once every cuisine
+  // passed twenty: it tops up whichever is marginally smallest while the real
+  // holes are elsewhere. Coverage is counted the way the picker is used —
+  // cuisine, diet, and a cuisine narrowed by a diet — and the emptiest wins.
+  const { coverage, thinnest } = require('./coverage.js');
+  const next = thinnest(ctx, G);
+  if (!next) {
+    console.log('every shelf is above its target — nothing to top up');
+    process.exit(0);
+  }
+  if (!PLAN) console.log(`aiming at the emptiest shelf: ${next.why}`);
+  cuisine = next.cuisine;
+  if (next.brief) { brief = next.brief; needDiet = next.diet; dietRule = next.rule; }
+}
+if (needDiet && !dietRule) {
+  const { dietBrief } = require('./coverage.js');
+  dietRule = dietBrief(G, needDiet);
+}
+if (needDiet && !G('DIET_CATS').some(c => c.id === needDiet)) {
+  console.error(`unknown diet "${needDiet}"`);
+  process.exit(1);
 }
 if (cuisine && !G('CUISINES').some(c => c.id === cuisine)) {
   console.error(`unknown cuisine "${cuisine}"`);
   process.exit(1);
 }
 const want = Number(flag('count', G('MAX_GEN_PER_CALL'))) || G('MAX_GEN_PER_CALL');
+
+if (PLAN) {
+  const { coverage } = require('./coverage.js');
+  const report = coverage(ctx, G);
+  console.log(`\n${report.recipes} recipes, ${report.gaps.length} shelves below target\n`);
+  report.gaps.forEach(g => console.log(
+    `  ${String(g.have).padStart(3)}/${g.want}  ${g.kind.padEnd(8)}${g.what}`));
+  console.log(`\nnext run would write ${want} ${cuisine || 'any-cuisine'}` +
+    (brief ? ` ${brief}` : ' recipes'));
+  process.exit(0);
+}
 
 // ── ask ──────────────────────────────────────────────────────────────────────
 function callAnthropic(body) {
@@ -117,7 +162,10 @@ function callAnthropic(body) {
 const { RECIPE_SCHEMA } = require('./recipe-schema.js');
 
 (async () => {
-  const prompt = ctx.generatePrompt(cuisine, brief, want);
+  let prompt = ctx.generatePrompt(cuisine, brief, want);
+  // Spelled out rather than named. "Vegan" on its own comes back with honey in
+  // it, or fish sauce, and the hole the run was aimed at is still there.
+  if (dietRule) prompt += `\n\nEvery one of these must be ${dietRule}.`;
   console.log(`asking for ${want} ${cuisine || 'any-cuisine'} recipes` +
     (brief ? `: ${brief}` : '') + '...');
 
@@ -153,6 +201,19 @@ const { RECIPE_SCHEMA } = require('./recipe-schema.js');
     const cal = calories.check(o);
     if (!cal.ok) { rejected.push(`${o.t} — ${cal.why}`); return; }
     const r = ctx.normaliseGenerated(o, ctx.nextRecipeId());
+    // The run was aimed at a hole. A recipe that does not sit in it is not a
+    // bad recipe, but it does not close the gap, and accepting it means the
+    // shelf stays empty and next week aims at the same place again. The app's
+    // own classifier decides, not the model's word for it.
+    if (needDiet) {
+      const st = ctx.dietStatus(r, needDiet);
+      if (!st.ok) {
+        const why = st.fixable ? 'only with a swap' : 'not at all';
+        rejected.push(`${r.t} — asked for ${needDiet}, ${why}` +
+          (st.blocking && st.blocking.length ? ` (${st.blocking.join(', ')})` : ''));
+        return;
+      }
+    }
     delete r.gen;                       // it is joining the catalogue, not a session
     RECIPES.push(r);                    // so nextRecipeId and duplicate checks see it
     accepted.push(r);
