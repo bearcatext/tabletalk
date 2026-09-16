@@ -206,11 +206,19 @@ const { RECIPE_SCHEMA } = require('./recipe-schema.js');
     // shelf stays empty and next week aims at the same place again. The app's
     // own classifier decides, not the model's word for it.
     if (needDiet) {
+      // dietStatus memoises on the recipe id, and nextRecipeId only moves when
+      // a recipe is accepted — so a rejected candidate hands its id, and its
+      // cached verdict, to the next one. One dish with cheese in it therefore
+      // failed the whole batch: three rejected, nothing written, exit 1. The
+      // cache has to be cleared before each candidate is judged.
+      ctx.clearDietCache();
       const st = ctx.dietStatus(r, needDiet);
       if (!st.ok) {
+        // Named "blockers", and reaching for st.blocking meant the one line
+        // that says which ingredient did it was quietly left off.
         const why = st.fixable ? 'only with a swap' : 'not at all';
         rejected.push(`${r.t} — asked for ${needDiet}, ${why}` +
-          (st.blocking && st.blocking.length ? ` (${st.blocking.join(', ')})` : ''));
+          (st.blockers && st.blockers.length ? `: ${st.blockers.join(', ')}` : ''));
         return;
       }
     }
@@ -231,7 +239,17 @@ const { RECIPE_SCHEMA } = require('./recipe-schema.js');
     warnings.forEach(m => console.log(`  ? ${m}`));
   }
 
-  if (!accepted.length) { console.log('\nnothing to write'); process.exit(rejected.length ? 1 : 0); }
+  if (!accepted.length) {
+    // Say what to do about it. "Nothing to write" on its own, under a red
+    // cross, tells whoever opens the run only that something went wrong.
+    console.log('\nnothing to write — every recipe was refused above.');
+    if (needDiet) {
+      console.log(`The run was aimed at ${needDiet}. If the refusals all name the`);
+      console.log('same ingredient, the rule in tools/coverage.js needs to say so');
+      console.log('plainly; if they name different ones, ask again.');
+    }
+    process.exit(rejected.length ? 1 : 0);
+  }
   if (DRY) { console.log('\ndry run — nothing written'); process.exit(0); }
 
   // ── write them into the catalogue ─────────────────────────────────────────

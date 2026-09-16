@@ -106,6 +106,49 @@ console.log('-- a run aimed at a hole has to fill it --');
     ctx.validateGenerated(withHoney, 'Italian').ok, true);
 }
 
+console.log('-- one bad recipe does not fail the whole batch --');
+// The first real run of the diet check wrote three American dairy-free dishes,
+// rejected all three, wrote nothing and exited 1. dietStatus memoises on the
+// recipe id, and nextRecipeId only moves when a recipe is accepted — so the
+// rejected first candidate handed its id, and its cached verdict, to the next
+// two. One dish with cheese in it failed the batch.
+{
+  const mk = (t, extra) => ({ e: '🍔', t, c: 'American', mins: 20, cals: 400, serves: 4,
+    rating: 4.5, desc: 'A test dish.',
+    ing: [{ n: 'Potatoes', amt: '600g', emoji: '🥔', core: true, swaps: [] }].concat(extra || []),
+    steps: [{ t: 'Cook', s: 'Cook it through.', tip: '' }] });
+  const batch = [
+    mk('A Cheesy Test Bake', [{ n: 'Cheddar', amt: '200g', emoji: '🧀', core: true, swaps: [] }]),
+    mk('A Plain Test Hash'),
+    mk('Another Test Hash'),
+  ];
+
+  // exactly what tools/generate.js does, cache clear included
+  const verdicts = batch.map(o => {
+    const r = ctx.normaliseGenerated(o, ctx.nextRecipeId());
+    ctx.clearDietCache();
+    return ctx.dietStatus(r, 'df').ok;
+  });
+  eq('the one with cheese is refused', verdicts[0], false);
+  eq('but the two without it are not', verdicts.slice(1), [true, true]);
+
+  // and the shape of the bug itself, so it cannot come back quietly
+  ctx.clearDietCache();
+  const shared = ctx.nextRecipeId();
+  const poisoned = ctx.dietStatus(ctx.normaliseGenerated(batch[0], shared), 'df').ok;
+  const inherited = ctx.dietStatus(ctx.normaliseGenerated(batch[1], shared), 'df').ok;
+  eq('two recipes sharing an id share a verdict, which is why the cache is cleared',
+    [poisoned, inherited], [false, false]);
+
+  eq('the generator clears it before judging',
+    /clearDietCache\(\);\s*\n\s*const st = ctx\.dietStatus/.test(
+      fs.readFileSync(path.join(ROOT, 'tools', 'generate.js'), 'utf8')), true);
+  // The rejection line has to name the ingredient, or a failed run says only
+  // that it failed. The field is "blockers"; reaching for "blocking" dropped it.
+  eq('and a refusal names what blocked it',
+    /st\.blockers/.test(fs.readFileSync(path.join(ROOT, 'tools', 'generate.js'), 'utf8')), true);
+}
+
 console.log('-- the generator asks the question this file answers --');
 {
   const gen = fs.readFileSync(path.join(ROOT, 'tools', 'generate.js'), 'utf8');

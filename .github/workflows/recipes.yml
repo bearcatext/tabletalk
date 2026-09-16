@@ -59,6 +59,11 @@ jobs:
           COUNT: ${{ inputs.count }}
           DIET: ${{ inputs.diet }}
         run: |
+          # The default shell here is "bash -e", without pipefail, so the exit
+          # status of "node ... | tee" is tee's — always zero. A generation that
+          # wrote nothing would sail through to the checks below and report
+          # success for having changed no files.
+          set -o pipefail
           if [ -z "$ANTHROPIC_API_KEY" ]; then
             echo "ANTHROPIC_API_KEY is not set in this repository's Actions secrets."
             exit 1
